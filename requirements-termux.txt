@@ -1,0 +1,6 @@
+# Minimal set for running on a phone/tablet (Termux): SQLite instead of PostgreSQL, no Redis.
+aiogram>=3.13,<4
+telethon>=1.40,<2
+SQLAlchemy[asyncio]>=2.0,<2.2
+aiosqlite>=0.20
+pydantic-settings>=2.4,<3

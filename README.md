@@ -127,6 +127,30 @@ ALTER TABLE listings ADD COLUMN backdrop_center INTEGER, ADD COLUMN backdrop_edg
 
 Сброс значения — отправить `-`. До 10 фильтров на пользователя (`MAX_FILTERS_PER_USER`).
 
+## Запуск на Android (Termux): бот и мини-приложение без сервера
+
+Подойдёт, чтобы попробовать всё с планшета или телефона: SQLite вместо PostgreSQL, Redis не нужен, публичный HTTPS-адрес даёт бесплатный туннель Cloudflare.
+
+1. Установите **Termux из F-Droid** (версия из Google Play устарела, `pkg` в ней не работает).
+2. В Termux:
+   ```bash
+   pkg install -y git
+   git clone -b claude/magical-clarke-1aww4p https://github.com/MaKyS0/TG_nft_track_bot
+   cd TG_nft_track_bot
+   bash scripts/termux_setup.sh   # ставит пакеты и зависимости, спросит токен бота (ввод скрыт)
+   bash scripts/termux_run.sh     # туннель + бот; остановка: Ctrl+C
+   ```
+3. В боте нажмите `/start`: появится кнопка «📱 Мини-приложение».
+
+Что нужно знать:
+
+* Первая установка долгая: `pydantic-core` собирается из исходников (10-20 минут, нужен заряд и Wi-Fi).
+* Адрес туннеля меняется при каждом запуске, бот сам переустанавливает кнопку меню. Пока `termux_run.sh` не запущен, мини-приложение недоступно.
+* Android усыпляет фоновые приложения: оставьте Termux открытым или в уведомлении нажмите «Acquire wakelock» (скрипт делает это сам), а в настройках батареи отключите для Termux оптимизацию.
+* Токен вводится в Termux, а не пишется в чат. Если репозиторий приватный, `git clone` попросит вход (логин GitHub и персональный токен вместо пароля).
+* По умолчанию включён режим `mock` (демо-данные). Для реального рынка в `.env` задайте `GIFT_SOURCE=telethon` и данные аккаунта, `scripts/make_session.py` тоже запускается в Termux.
+* Скрипты проверены на имитации (подмена `cloudflared`) и набор тестов проходит с зависимостями из `requirements-termux.txt`, но на реальном Android я их не запускал.
+
 ## Конфигурация
 
 Все параметры — в `.env` (см. [.env.example](.env.example)).
