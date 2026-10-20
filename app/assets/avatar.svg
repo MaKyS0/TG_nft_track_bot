@@ -1,73 +1,170 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="640" height="640">
+  <!-- NFT Tracker bot avatar: a gift caught by a radar sweep. Safe for a circular crop. -->
   <defs>
-    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
-      <stop offset="0" stop-color="#4a5bf0"/>
-      <stop offset="0.55" stop-color="#2a2f9e"/>
-      <stop offset="1" stop-color="#0c1033"/>
+    <radialGradient id="bg" cx="34%" cy="26%" r="90%">
+      <stop offset="0" stop-color="#8063ff"/>
+      <stop offset="0.42" stop-color="#4a2bd1"/>
+      <stop offset="1" stop-color="#150a4a"/>
     </radialGradient>
-    <radialGradient id="glow" cx="50%" cy="52%" r="50%">
-      <stop offset="0" stop-color="#7fe7ff" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#7fe7ff" stop-opacity="0"/>
+    <radialGradient id="warm" cx="82%" cy="92%" r="60%">
+      <stop offset="0" stop-color="#e04dff" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#e04dff" stop-opacity="0"/>
     </radialGradient>
-    <!-- the repeating "pattern" layer every Telegram NFT has: small diamonds in a staggered grid -->
-    <pattern id="pat" width="64" height="64" patternUnits="userSpaceOnUse" patternTransform="rotate(12)">
-      <path d="M16 6 L22 16 L16 26 L10 16Z" fill="#ffffff" fill-opacity="0.08"/>
-      <path d="M48 38 L54 48 L48 58 L42 48Z" fill="#ffffff" fill-opacity="0.08"/>
-      <circle cx="48" cy="10" r="2.4" fill="#ffffff" fill-opacity="0.07"/>
-      <circle cx="16" cy="44" r="2.4" fill="#ffffff" fill-opacity="0.07"/>
-    </pattern>
-    <linearGradient id="front" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#34e0c8"/>
-      <stop offset="1" stop-color="#1397b9"/>
+    <linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="320" y1="350" x2="524.8" y2="206.6">
+      <stop offset="0" stop-color="#9ff8ff" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#9ff8ff" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#e6fdff"/>
     </linearGradient>
-    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#1397b9"/>
-      <stop offset="1" stop-color="#0c6f96"/>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff7096"/>
+      <stop offset="1" stop-color="#e0307c"/>
     </linearGradient>
     <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#5df0dc"/>
-      <stop offset="1" stop-color="#2bc6c4"/>
+      <stop offset="0" stop-color="#ffa2b9"/>
+      <stop offset="1" stop-color="#ff7399"/>
     </linearGradient>
     <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffe27a"/>
-      <stop offset="0.55" stop-color="#ffb81f"/>
-      <stop offset="1" stop-color="#e08a00"/>
+      <stop offset="0" stop-color="#fff2b0"/>
+      <stop offset="0.45" stop-color="#ffcb38"/>
+      <stop offset="1" stop-color="#f39600"/>
     </linearGradient>
+    <linearGradient id="goldV" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffe88a"/>
+      <stop offset="0.5" stop-color="#ffc52e"/>
+      <stop offset="1" stop-color="#f29c00"/>
+    </linearGradient>
+    <clipPath id="disc"><circle cx="320" cy="350" r="250"/></clipPath>
+    <filter id="soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="2.4"/></filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="9"/></filter>
     <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
-      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#050824" flood-opacity="0.55"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#0b0533" flood-opacity="0.62"/>
     </filter>
   </defs>
 
   <rect width="640" height="640" fill="url(#bg)"/>
-  <rect width="640" height="640" fill="url(#pat)"/>
-  <circle cx="320" cy="330" r="300" fill="url(#glow)"/>
+  <rect width="640" height="640" fill="url(#warm)"/>
 
-  <!-- tracking rings, one of them lit like a radar sweep -->
-  <g fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="3">
-    <circle cx="320" cy="330" r="150"/>
-    <circle cx="320" cy="330" r="215"/>
-    <circle cx="320" cy="330" r="280"/>
+  <!-- radar disc: faint face, rings, and a sweep that fades behind its leading edge -->
+  <circle cx="320" cy="350" r="250" fill="#0d0640" fill-opacity="0.18"/>
+  <g fill="none" stroke="#c9f3ff" stroke-opacity="0.18" stroke-width="5">
+    <circle cx="320" cy="350" r="250"/>
+    <circle cx="320" cy="350" r="168"/>
   </g>
-  <path d="M320 115 A215 215 0 0 1 535 330" fill="none" stroke="#7fe7ff" stroke-width="7" stroke-linecap="round" stroke-opacity="0.9"/>
-  <path d="M320 50 A280 280 0 0 1 600 330" fill="none" stroke="#7fe7ff" stroke-width="4" stroke-linecap="round" stroke-opacity="0.35"/>
-  <!-- the "found it" ping -->
-  <circle cx="500" cy="196" r="30" fill="#ff5f7a" fill-opacity="0.22"/>
-  <circle cx="500" cy="196" r="15" fill="#ff5f7a"/>
-  <circle cx="500" cy="196" r="15" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-width="3"/>
+  <g clip-path="url(#disc)">
+    <g fill="#7ff0ff" filter="url(#soft)">
+      <path d="M320 350L128.5 189.3A250 250 0 0 1 132.8 184.3Z" fill-opacity="0.000"/>
+      <path d="M320 350L132.0 185.2A250 250 0 0 1 136.4 180.3Z" fill-opacity="0.000"/>
+      <path d="M320 350L135.7 181.1A250 250 0 0 1 140.2 176.3Z" fill-opacity="0.001"/>
+      <path d="M320 350L139.4 177.1A250 250 0 0 1 144.0 172.5Z" fill-opacity="0.001"/>
+      <path d="M320 350L143.2 173.2A250 250 0 0 1 147.9 168.7Z" fill-opacity="0.002"/>
+      <path d="M320 350L147.1 169.4A250 250 0 0 1 151.9 164.9Z" fill-opacity="0.003"/>
+      <path d="M320 350L151.1 165.7A250 250 0 0 1 156.0 161.3Z" fill-opacity="0.004"/>
+      <path d="M320 350L155.2 162.0A250 250 0 0 1 160.1 157.8Z" fill-opacity="0.006"/>
+      <path d="M320 350L159.3 158.5A250 250 0 0 1 164.4 154.3Z" fill-opacity="0.007"/>
+      <path d="M320 350L163.5 155.0A250 250 0 0 1 168.7 151.0Z" fill-opacity="0.009"/>
+      <path d="M320 350L167.8 151.7A250 250 0 0 1 173.1 147.7Z" fill-opacity="0.011"/>
+      <path d="M320 350L172.2 148.4A250 250 0 0 1 177.5 144.6Z" fill-opacity="0.013"/>
+      <path d="M320 350L176.6 145.2A250 250 0 0 1 182.0 141.5Z" fill-opacity="0.015"/>
+      <path d="M320 350L181.1 142.1A250 250 0 0 1 186.6 138.6Z" fill-opacity="0.017"/>
+      <path d="M320 350L185.7 139.2A250 250 0 0 1 191.2 135.7Z" fill-opacity="0.020"/>
+      <path d="M320 350L190.3 136.3A250 250 0 0 1 195.9 133.0Z" fill-opacity="0.022"/>
+      <path d="M320 350L195.0 133.5A250 250 0 0 1 200.7 130.3Z" fill-opacity="0.025"/>
+      <path d="M320 350L199.8 130.8A250 250 0 0 1 205.5 127.7Z" fill-opacity="0.028"/>
+      <path d="M320 350L204.6 128.2A250 250 0 0 1 210.4 125.3Z" fill-opacity="0.032"/>
+      <path d="M320 350L209.4 125.8A250 250 0 0 1 215.3 123.0Z" fill-opacity="0.035"/>
+      <path d="M320 350L214.3 123.4A250 250 0 0 1 220.3 120.7Z" fill-opacity="0.039"/>
+      <path d="M320 350L219.3 121.2A250 250 0 0 1 225.3 118.6Z" fill-opacity="0.043"/>
+      <path d="M320 350L224.3 119.0A250 250 0 0 1 230.4 116.6Z" fill-opacity="0.046"/>
+      <path d="M320 350L229.4 117.0A250 250 0 0 1 235.5 114.7Z" fill-opacity="0.051"/>
+      <path d="M320 350L234.5 115.1A250 250 0 0 1 240.7 112.9Z" fill-opacity="0.055"/>
+      <path d="M320 350L239.6 113.3A250 250 0 0 1 245.9 111.2Z" fill-opacity="0.059"/>
+      <path d="M320 350L244.8 111.6A250 250 0 0 1 251.1 109.7Z" fill-opacity="0.064"/>
+      <path d="M320 350L250.0 110.0A250 250 0 0 1 256.3 108.2Z" fill-opacity="0.069"/>
+      <path d="M320 350L255.3 108.5A250 250 0 0 1 261.6 106.9Z" fill-opacity="0.074"/>
+      <path d="M320 350L260.6 107.2A250 250 0 0 1 267.0 105.7Z" fill-opacity="0.079"/>
+      <path d="M320 350L265.9 105.9A250 250 0 0 1 272.3 104.6Z" fill-opacity="0.084"/>
+      <path d="M320 350L271.2 104.8A250 250 0 0 1 277.7 103.6Z" fill-opacity="0.090"/>
+      <path d="M320 350L276.6 103.8A250 250 0 0 1 283.0 102.7Z" fill-opacity="0.096"/>
+      <path d="M320 350L282.0 102.9A250 250 0 0 1 288.5 102.0Z" fill-opacity="0.102"/>
+      <path d="M320 350L287.4 102.1A250 250 0 0 1 293.9 101.4Z" fill-opacity="0.108"/>
+      <path d="M320 350L292.8 101.5A250 250 0 0 1 299.3 100.9Z" fill-opacity="0.114"/>
+      <path d="M320 350L298.2 101.0A250 250 0 0 1 304.7 100.5Z" fill-opacity="0.120"/>
+      <path d="M320 350L303.6 100.5A250 250 0 0 1 310.2 100.2Z" fill-opacity="0.127"/>
+      <path d="M320 350L309.1 100.2A250 250 0 0 1 315.6 100.0Z" fill-opacity="0.134"/>
+      <path d="M320 350L314.5 100.1A250 250 0 0 1 321.1 100.0Z" fill-opacity="0.141"/>
+      <path d="M320 350L320.0 100.0A250 250 0 0 1 326.5 100.1Z" fill-opacity="0.148"/>
+      <path d="M320 350L325.5 100.1A250 250 0 0 1 332.0 100.3Z" fill-opacity="0.155"/>
+      <path d="M320 350L330.9 100.2A250 250 0 0 1 337.4 100.6Z" fill-opacity="0.162"/>
+      <path d="M320 350L336.4 100.5A250 250 0 0 1 342.9 101.0Z" fill-opacity="0.170"/>
+      <path d="M320 350L341.8 101.0A250 250 0 0 1 348.3 101.6Z" fill-opacity="0.178"/>
+      <path d="M320 350L347.2 101.5A250 250 0 0 1 353.7 102.3Z" fill-opacity="0.186"/>
+      <path d="M320 350L352.6 102.1A250 250 0 0 1 359.1 103.1Z" fill-opacity="0.194"/>
+      <path d="M320 350L358.0 102.9A250 250 0 0 1 364.5 104.0Z" fill-opacity="0.202"/>
+      <path d="M320 350L363.4 103.8A250 250 0 0 1 369.8 105.0Z" fill-opacity="0.211"/>
+      <path d="M320 350L368.8 104.8A250 250 0 0 1 375.2 106.2Z" fill-opacity="0.220"/>
+      <path d="M320 350L374.1 105.9A250 250 0 0 1 380.5 107.4Z" fill-opacity="0.229"/>
+      <path d="M320 350L379.4 107.2A250 250 0 0 1 385.8 108.8Z" fill-opacity="0.238"/>
+      <path d="M320 350L384.7 108.5A250 250 0 0 1 391.0 110.3Z" fill-opacity="0.247"/>
+      <path d="M320 350L390.0 110.0A250 250 0 0 1 396.2 111.9Z" fill-opacity="0.256"/>
+      <path d="M320 350L395.2 111.6A250 250 0 0 1 401.4 113.6Z" fill-opacity="0.266"/>
+      <path d="M320 350L400.4 113.3A250 250 0 0 1 406.5 115.5Z" fill-opacity="0.276"/>
+      <path d="M320 350L405.5 115.1A250 250 0 0 1 411.6 117.4Z" fill-opacity="0.285"/>
+      <path d="M320 350L410.6 117.0A250 250 0 0 1 416.7 119.4Z" fill-opacity="0.296"/>
+      <path d="M320 350L415.7 119.0A250 250 0 0 1 421.7 121.6Z" fill-opacity="0.306"/>
+      <path d="M320 350L420.7 121.2A250 250 0 0 1 426.6 123.9Z" fill-opacity="0.316"/>
+      <path d="M320 350L425.7 123.4A250 250 0 0 1 431.5 126.3Z" fill-opacity="0.327"/>
+      <path d="M320 350L430.6 125.8A250 250 0 0 1 436.4 128.8Z" fill-opacity="0.338"/>
+      <path d="M320 350L435.4 128.2A250 250 0 0 1 441.2 131.3Z" fill-opacity="0.349"/>
+      <path d="M320 350L440.2 130.8A250 250 0 0 1 445.9 134.0Z" fill-opacity="0.360"/>
+      <path d="M320 350L445.0 133.5A250 250 0 0 1 450.6 136.8Z" fill-opacity="0.371"/>
+      <path d="M320 350L449.7 136.3A250 250 0 0 1 455.2 139.7Z" fill-opacity="0.383"/>
+      <path d="M320 350L454.3 139.2A250 250 0 0 1 459.8 142.7Z" fill-opacity="0.394"/>
+      <path d="M320 350L458.9 142.1A250 250 0 0 1 464.3 145.8Z" fill-opacity="0.406"/>
+      <path d="M320 350L463.4 145.2A250 250 0 0 1 468.7 149.0Z" fill-opacity="0.418"/>
+      <path d="M320 350L467.8 148.4A250 250 0 0 1 473.1 152.3Z" fill-opacity="0.431"/>
+      <path d="M320 350L472.2 151.7A250 250 0 0 1 477.3 155.7Z" fill-opacity="0.443"/>
+      <path d="M320 350L476.5 155.0A250 250 0 0 1 481.5 159.2Z" fill-opacity="0.456"/>
+      <path d="M320 350L480.7 158.5A250 250 0 0 1 485.7 162.8Z" fill-opacity="0.468"/>
+      <path d="M320 350L484.8 162.0A250 250 0 0 1 489.7 166.4Z" fill-opacity="0.481"/>
+      <path d="M320 350L488.9 165.7A250 250 0 0 1 493.7 170.2Z" fill-opacity="0.494"/>
+      <path d="M320 350L492.9 169.4A250 250 0 0 1 497.5 174.0Z" fill-opacity="0.508"/>
+      <path d="M320 350L496.8 173.2A250 250 0 0 1 501.3 177.9Z" fill-opacity="0.521"/>
+      <path d="M320 350L500.6 177.1A250 250 0 0 1 505.1 181.9Z" fill-opacity="0.535"/>
+      <path d="M320 350L504.3 181.1A250 250 0 0 1 508.7 186.0Z" fill-opacity="0.548"/>
+      <path d="M320 350L508.0 185.2A250 250 0 0 1 512.2 190.1Z" fill-opacity="0.562"/>
+      <path d="M320 350L511.5 189.3A250 250 0 0 1 515.7 194.4Z" fill-opacity="0.577"/>
+      <path d="M320 350L515.0 193.5A250 250 0 0 1 519.0 198.7Z" fill-opacity="0.591"/>
+      <path d="M320 350L518.3 197.8A250 250 0 0 1 522.3 203.1Z" fill-opacity="0.605"/>
+      <path d="M320 350L521.6 202.2A250 250 0 0 1 524.8 206.6Z" fill-opacity="0.620"/>
+    </g>
+  </g>
+  <path d="M320 350L524.8 206.6" stroke="url(#beam)" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- an older, fading blip and the fresh one the sweep just found -->
+  <circle cx="186" cy="212" r="8" fill="#bdf7ff" fill-opacity="0.32"/>
+  <circle cx="186" cy="212" r="17" fill="none" stroke="#bdf7ff" stroke-opacity="0.16" stroke-width="3"/>
+  <circle cx="524.8" cy="206.6" r="36" fill="#8ff6ff" fill-opacity="0.35" filter="url(#glow)"/>
+  <circle cx="524.8" cy="206.6" r="23" fill="#8ff6ff" fill-opacity="0.3"/>
+  <circle cx="524.8" cy="206.6" r="13.5" fill="#f2feff"/>
 
   <!-- the gift -->
   <g filter="url(#shadow)">
-    <rect x="212" y="340" width="216" height="150" rx="16" fill="url(#front)"/>
-    <path d="M388 340 H412 a16 16 0 0 1 16 16 V474 a16 16 0 0 1 -16 16 H388Z" fill="url(#side)" opacity="0.55"/>
-    <rect x="196" y="288" width="248" height="62" rx="16" fill="url(#lid)"/>
-    <rect x="196" y="334" width="248" height="16" fill="#0a6e8a" fill-opacity="0.28"/>
-    <rect x="296" y="288" width="48" height="202" fill="url(#gold)"/>
-    <rect x="296" y="288" width="12" height="202" fill="#ffffff" fill-opacity="0.28"/>
-    <!-- bow -->
-    <path d="M320 292 C262 214 196 232 218 276 C234 304 286 300 320 292Z" fill="url(#gold)"/>
-    <path d="M320 292 C378 214 444 232 422 276 C406 304 354 300 320 292Z" fill="url(#gold)"/>
-    <path d="M320 292 C268 238 226 246 236 270" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="320" cy="292" r="24" fill="#ffc933"/>
-    <circle cx="313" cy="285" r="8" fill="#fff4b8" fill-opacity="0.8"/>
+    <rect x="186" y="370" width="268" height="172" rx="24" fill="url(#body)"/>
+    <rect x="166" y="312" width="308" height="76" rx="22" fill="url(#lid)"/>
+    <rect x="186" y="388" width="268" height="15" fill="#a8195a" fill-opacity="0.32"/>
+    <rect x="291" y="312" width="58" height="230" fill="url(#goldV)"/>
+    <rect x="291" y="388" width="58" height="15" fill="#a35a00" fill-opacity="0.25"/>
+    <rect x="297" y="312" width="12" height="230" fill="#fffbe6" fill-opacity="0.45"/>
+    <!-- bow: two loops with their inner folds, and a knot -->
+    <path d="M320 318 C252 222 164 236 192 294 C210 330 280 328 320 318Z" fill="url(#gold)"/>
+    <path d="M320 318 C388 222 476 236 448 294 C430 330 360 328 320 318Z" fill="url(#gold)"/>
+    <path d="M318 316 C276 268 228 262 226 290 C236 310 286 316 318 316Z" fill="#d97800" fill-opacity="0.38"/>
+    <path d="M322 316 C364 268 412 262 414 290 C404 310 354 316 322 316Z" fill="#d97800" fill-opacity="0.38"/>
+    <path d="M206 286 C206 252 248 246 284 274" fill="none" stroke="#fffbe0" stroke-opacity="0.75" stroke-width="7" stroke-linecap="round"/>
+    <rect x="294" y="292" width="52" height="46" rx="18" fill="#ffcd36"/>
+    <rect x="302" y="298" width="18" height="12" rx="6" fill="#fffbe0" fill-opacity="0.85"/>
+    <!-- gloss -->
+    <rect x="184" y="322" width="92" height="10" rx="5" fill="#ffffff" fill-opacity="0.42"/>
+    <rect x="204" y="414" width="12" height="96" rx="6" fill="#ffffff" fill-opacity="0.16"/>
   </g>
 </svg>

@@ -61,8 +61,13 @@ const ICONS = {
   profile: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M4.5 20c.8-3.6 3.9-5.5 7.5-5.5s6.7 1.9 7.5 5.5"],
   refresh: ["M20 11a8 8 0 1 0-2.3 5.7", "M20 5v6h-6"],
   close: ["M6 6l12 12", "M18 6L6 18"],
+  plus: ["M12 5v14", "M5 12h14"],
+  radar: ["M20.5 12A8.5 8.5 0 1 1 12 3.5", "M16 12a4 4 0 1 1-4-4", "M12 12l6-6", "M19 4.5v.01"],
+  alert: ["M12 8.5v4.5", "M12 16.5v.01", "M10.3 4.2L2.9 17.3a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"],
+  bell: ["M6.5 16.5V11a5.5 5.5 0 1 1 11 0v5.5l1.5 2H5z", "M10 20.5a2 2 0 0 0 4 0"],
 };
 const STAR = "M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z";
+const GEM = "M7.2 4h9.6l4.2 5.2L12 20.5 3 9.2z"; // a generic cut gem for TON prices (not the TON logo)
 
 function icon(name) {
   const el = svg(ICONS[name]);
@@ -82,12 +87,26 @@ const fmt = (n) => nf.format(n);
 const pct = (permille) => (permille == null ? "" : fmt(permille / 10) + "%");
 
 function priceNode(o) {
-  if (o.currency === "TON") {
-    return h("div", { class: "price ton" }, `${nfTon.format(o.price / 1e9)} TON`);
-  }
-  const star = svg([STAR]);
-  return h("div", { class: "price" }, star, fmt(o.price));
+  const ton = o.currency === "TON";
+  return h("div", { class: "price" + (ton ? " ton" : " stars") },
+    svg([ton ? GEM : STAR], "glyph"),
+    h("span", { class: "amount" }, ton ? nfTon.format(o.price / 1e9) : fmt(o.price)),
+    ton ? h("span", { class: "unit" }, "TON") : h("span", { class: "sr-only" }, " Stars"));
 }
+
+// Rarity is per-mille. The tiers only colour the chip; the number itself is always shown.
+function rarityTier(permille) {
+  if (permille == null) return null;
+  if (permille <= 10) return "legendary";
+  if (permille <= 30) return "epic";
+  if (permille <= 100) return "rare";
+  return "common";
+}
+const TIER_TITLES = {
+  legendary: "Очень редкий признак: 1% и меньше",
+  epic: "Редкий признак: до 3%",
+  rare: "Необычный признак: до 10%",
+};
 
 function filterSummary(f) {
   const parts = [];
@@ -277,31 +296,34 @@ function demoNote() {
     : null;
 }
 
-function emptyState(title, text, actionLabel, action) {
-  return h("div", { class: "state" }, h("h2", null, title), h("p", null, text),
+function emptyState(iconName, title, text, actionLabel, action) {
+  return h("div", { class: "state" },
+    h("div", { class: "state-icon" }, icon(iconName)),
+    h("h2", null, title), h("p", null, text),
     actionLabel ? h("button", { class: "btn", onclick: action }, actionLabel) : null);
 }
 
 function skeletonView() {
   const card = () => h("div", { class: "offer skeleton", "aria-hidden": "true" },
-    h("div", { class: "sk-hero" }), h("div", { class: "sk-line" }), h("div", { class: "sk-line short" }), h("div", { class: "sk-line" }));
+    h("div", { class: "sk-hero" }), h("div", { class: "sk-line wide" }), h("div", { class: "sk-line" }), h("div", { class: "sk-line short" }),
+    h("div", { class: "sk-line btn" }));
   return [
     h("div", { class: "head" }, h("div", null, h("h1", null, "Лоты"), h("p", { class: "sk-text", "aria-label": "Загрузка" }, "Загружаю предложения"))),
+    h("div", { class: "toolbar", "aria-hidden": "true" }, h("div", { class: "sk-seg" })),
     h("div", { class: "offers", role: "status", "aria-label": "Загрузка" }, card(), card(), card()),
   ];
 }
 
-function offerCard(o) {
-  const title = h("div", { class: "caption" },
-    h("div", { class: "title" }, o.collection),
-    h("div", { class: "num" }, "№ " + o.number));
+function offerCard(o, index) {
   const banner = h("div", { class: "banner" });
   const center = safeColor(o.backdrop_center);
   const edge = safeColor(o.backdrop_edge);
-  if (center && edge) banner.style.background = `radial-gradient(120% 140% at 50% 10%, ${center}, ${edge})`;
+  if (center && edge) banner.style.background = `radial-gradient(120% 120% at 50% 35%, ${center}, ${edge})`;
+  if (center && edge && hexLuma(center) * 0.6 + hexLuma(edge) * 0.4 > 150) banner.classList.add("on-light");
 
-  // The picture already contains the backdrop, the pattern and the gift itself. If it cannot be loaded
-  // (unknown slug, CDN down) the card falls back to the compact colour banner.
+  // The picture already contains the backdrop, the pattern and the gift itself. Until it loads, or when it
+  // cannot be loaded (unknown slug, CDN down), the backdrop colours and a gift outline stand in for it.
+  banner.append(h("span", { class: "placeholder", "aria-hidden": "true" }, icon("offers")));
   const imageUrl = safeImageUrl(o.image_url);
   if (imageUrl) {
     banner.classList.add("loading-image");
@@ -310,9 +332,13 @@ function offerCard(o) {
     img.addEventListener("error", () => { img.remove(); banner.classList.remove("loading-image"); });
     banner.append(img);
   }
-  if (!imageUrl && center && edge && hexLuma(center) * 0.6 + hexLuma(edge) * 0.4 > 150) banner.classList.add("on-light");
-  if (isNew(o)) banner.append(h("span", { class: "badge-new" }, "Новый"));
-  banner.append(title);
+  banner.append(
+    h("div", { class: "hero-chips" },
+      isNew(o) ? h("span", { class: "badge-new" }, "Новый") : null,
+      h("span", { class: "chip-market" }, o.market_title)),
+    h("div", { class: "caption" },
+      h("div", { class: "title" }, o.collection),
+      h("div", { class: "num" }, "№ " + o.number)));
 
   const traits = h("dl", { class: "traits" });
   for (const [label, value, rarity] of [
@@ -327,8 +353,9 @@ function offerCard(o) {
       dot.style.background = `radial-gradient(circle at 35% 30%, ${center}, ${edge})`;
       name.prepend(dot);
     }
-    const rare = rarity != null && rarity <= 10; // 1% or rarer
-    traits.append(h("dt", null, label), name, h("dd", { class: "rar" + (rare ? " rare" : ""), title: rare ? "Редкий признак" : null }, pct(rarity)));
+    const tier = rarityTier(rarity);
+    traits.append(h("dt", null, label), name,
+      h("dd", { class: "rar" }, tier ? h("span", { class: "tier tier-" + tier, title: TIER_TITLES[tier] || null }, pct(rarity)) : null));
   }
 
   const ownerUrl = safeTgUrl(o.owner_url);
@@ -340,9 +367,10 @@ function offerCard(o) {
   const actions = h("div", { class: "actions-row" },
     marketUrl ? h("button", { class: "btn", onclick: () => { haptic(); openLink(marketUrl); } }, `Купить на ${o.market_title}`) : null,
     h("button", { class: marketUrl ? "btn quiet" : "btn", onclick: () => { haptic(); openLink(o.url); } }, "Страница подарка"));
-  return h("article", { class: "offer" }, banner, traits,
-    h("div", { class: "buy" }, priceNode(o), marketUrl ? h("span", { class: "market" }, o.market_title) : null),
-    actions, owner);
+  const card = h("article", { class: "offer" }, banner,
+    h("div", { class: "body" }, h("div", { class: "buy" }, priceNode(o)), traits, actions, owner));
+  card.style.setProperty("--i", String(Math.min(index || 0, 8)));
+  return card;
 }
 
 function statusText() {
@@ -356,25 +384,29 @@ function updateStatus() {
   if (el) el.textContent = statusText();
 }
 
-function segmented(label, options, current, onPick) {
-  return h("div", { class: "seg", role: "group", "aria-label": label },
-    options.map(([value, text]) => h("button", { type: "button", class: "seg-btn", "aria-pressed": String(current === value),
-      onclick: () => { if (current !== value) { haptic(); onPick(value); } } }, text)));
+const countBadge = (n) => (n == null ? null : [" ", h("span", { class: "count" }, n)]);
+
+function segmented(label, options, current, onPick, extraClass) {
+  return h("div", { class: "seg" + (extraClass ? " " + extraClass : ""), role: "group", "aria-label": label },
+    options.map(([value, text, count]) => h("button", { type: "button", class: "seg-btn", "aria-pressed": String(current === value),
+      onclick: () => { if (current !== value) { haptic(); onPick(value); } } }, text, countBadge(count))));
 }
 
 function offersView() {
   const o = state.offers;
   const head = h("div", { class: "head" },
-    h("div", null, h("h1", null, "Лоты"), h("p", { id: "status" }, statusText())),
+    h("div", null, h("h1", null, "Лоты"),
+      h("p", { class: "status" }, h("i", { class: "live-dot" + (state.refreshing ? " busy" : ""), "aria-hidden": "true" }),
+        h("span", { id: "status" }, statusText()))),
     h("button", { class: "icon-btn" + (state.refreshing ? " spinning" : ""), "aria-label": "Обновить", disabled: state.refreshing,
       onclick: () => { haptic(); refreshOffers(false); } }, icon("refresh")));
 
   if (!o.has_filters) {
-    return [head, demoNote(), emptyState("Пока нет активных фильтров", "Создайте фильтр, и здесь появятся подходящие предложения.",
+    return [head, demoNote(), emptyState("filters", "Пока нет активных фильтров", "Создайте фильтр, и здесь появятся подходящие предложения.",
       "Создать фильтр", () => { state.tab = "filters"; openSheet(null); })];
   }
   if (!o.offers.length) {
-    return [head, demoNote(), emptyState("Ничего не найдено", `Я показываю предложения, замеченные за последние ${state.me.fresh_minutes} мин. Новые подходящие лоты придут уведомлением в чат с ботом, если оно включено.`)];
+    return [head, demoNote(), emptyState("radar", "Ничего не найдено", `Я показываю предложения, замеченные за последние ${state.me.fresh_minutes} мин. Новые подходящие лоты придут уведомлением в чат с ботом, если оно включено.`)];
   }
 
   const markets = [...new Set(o.offers.map((x) => x.market))];
@@ -383,23 +415,24 @@ function offersView() {
   const titles = Object.fromEntries(o.offers.map((x) => [x.market, x.market_title]));
   const freshTotal = o.offers.filter(isFresh).length;
   const toolbar = h("div", { class: "toolbar" },
-    segmented("Что показывать", [["new", `Новые ${freshTotal}`], ["all", `Все ${o.offers.length}`]], state.view, setView),
-    segmented("Сортировка", Object.entries(SORTS).map(([k, v]) => [k, v.label]), state.sort, (v) => { state.sort = v; render(); }),
-    markets.length > 1
-      ? h("div", { class: "chips", role: "group", "aria-label": "Площадка" },
-        [["all", "Все"], ...markets.map((m) => [m, titles[m]])].map(([m, text]) =>
-          h("button", { type: "button", class: "chip", "aria-pressed": String(state.market === m),
-            onclick: () => { haptic(); state.market = m; render(); } }, `${text} ${count(m)}`)))
-      : null);
+    segmented("Что показывать", [["new", "Новые", freshTotal], ["all", "Все", o.offers.length]], state.view, setView, "seg-view"),
+    h("div", { class: "toolbar-row" },
+      segmented("Сортировка", Object.entries(SORTS).map(([k, v]) => [k, v.label]), state.sort, (v) => { state.sort = v; render(); }, "seg-sort"),
+      markets.length > 1
+        ? h("div", { class: "chips", role: "group", "aria-label": "Площадка" },
+          [["all", "Все площадки"], ...markets.map((m) => [m, titles[m]])].map(([m, text]) =>
+            h("button", { type: "button", class: "chip", "aria-pressed": String(state.market === m),
+              onclick: () => { haptic(); state.market = m; render(); } }, text, countBadge(count(m)))))
+        : null));
 
   const list = visibleOffers();
   let empty;
   if (state.view === "new" && !freshTotal) {
-    empty = emptyState("Новых лотов пока нет",
+    empty = emptyState("radar", "Новых лотов пока нет",
       "Я показываю только подарки, появившиеся уже после начала слежения (первый обход только запоминает то, что уже продаётся). Как только выставят новый, он появится здесь сам.",
       "Показать все", () => setView("all"));
   } else {
-    empty = emptyState("На этой площадке пока пусто", "Выберите «Все» или другую площадку.");
+    empty = emptyState("offers", "На этой площадке пока пусто", "Выберите «Все площадки» или другую площадку.");
   }
   return [head, demoNote(), toolbar, list.length ? h("div", { class: "offers" }, list.map(offerCard)) : empty];
 }
@@ -407,11 +440,11 @@ function offersView() {
 function filtersView() {
   const head = h("div", { class: "head" },
     h("div", null, h("h1", null, "Фильтры"), h("p", null, "Лот подходит, если выполнены все условия одного включённого фильтра.")),
-    h("button", { class: "btn", onclick: () => openSheet(null) }, "Новый"));
+    h("button", { class: "btn with-icon", onclick: () => openSheet(null) }, icon("plus"), "Новый"));
 
   const body = state.filters.length
     ? h("div", { class: "list" }, state.filters.map((f) => filterRow(f)))
-    : emptyState("Фильтров пока нет", "Задайте коллекцию, модель, фон или цену, и бот будет искать подходящие лоты.",
+    : emptyState("filters", "Фильтров пока нет", "Задайте коллекцию, модель, фон или цену, и бот будет искать подходящие лоты.",
       "Создать фильтр", () => openSheet(null));
   return [head, demoNote(), body];
 }
@@ -434,20 +467,32 @@ function profileView() {
   const m = state.me;
   const s = m.stats;
   const name = m.user.first_name || "коллекционер";
-  const head = h("div", { class: "head" }, h("div", null, h("h1", null, "Профиль"), h("p", null, "Привет, " + name + "!")));
+  const head = h("div", { class: "head" }, h("div", null, h("h1", null, "Профиль")));
+
+  const card = h("section", { class: "profile-card" },
+    h("div", { class: "avatar", "aria-hidden": "true" }, (name.trim()[0] || "?").toUpperCase()),
+    h("div", { class: "who" }, h("div", { class: "hello" }, "Привет, " + name + "!"),
+      h("div", { class: "sub" }, m.user.username ? "@" + m.user.username : "Слежу за рынком подарков для вас")));
+
+  const tile = (label, value, sub) => h("div", { class: "tile" },
+    h("div", { class: "tile-label" }, label), h("div", { class: "tile-value" }, fmt(value)), h("div", { class: "tile-sub" }, sub));
+  const tiles = h("div", { class: "tiles" },
+    tile("Фильтры", s.filters_total, `включено ${s.filters_active}`),
+    tile("Уведомления", s.notifications_received, "получено от бота"));
 
   const notify = h("div", { class: "panel" }, h("div", { class: "setting" },
-    h("div", { class: "main" }, h("div", null, "Уведомления в чат"),
+    h("span", { class: "setting-icon" }, icon("bell")),
+    h("div", { class: "main" }, h("div", { class: "name" }, "Уведомления в чат"),
       h("div", { class: "sub" }, "Присылать новые подходящие лоты в чат с ботом.")),
     h("label", { class: "switch" },
       h("input", { type: "checkbox", role: "switch", checked: m.notifications_enabled, "aria-label": "Уведомления в чат",
         onchange: (e) => toggleNotifications(e.target.checked, e.target) }), h("i"))));
 
-  const facts = (rows) => h("div", { class: "panel" }, h("dl", { class: "facts" }, rows.flatMap(([k, v]) => [h("dt", null, k), h("dd", null, String(v))])));
-  return [head, demoNote(), notify,
-    facts([["Ваши фильтры", `${s.filters_total} (включено ${s.filters_active})`], ["Получено уведомлений", s.notifications_received]]),
-    facts([["Последний опрос рынка", timeAgo(s.last_poll_at)], ["Известных предложений", s.listings_known], ["Пользователей", s.users]]),
-    h("p", { class: "fine" }, "Бот проверяет рынок по расписанию, поэтому уведомления приходят с задержкой. Сделки проходят в Telegram по ссылке на подарок, бот их не проводит.")];
+  const facts = (title, rows) => h("section", { class: "panel" }, h("h2", { class: "panel-title" }, title),
+    h("dl", { class: "facts" }, rows.flatMap(([k, v]) => [h("dt", null, k), h("dd", null, String(v))])));
+  return [head, demoNote(), h("div", { class: "profile" }, card, tiles, notify,
+    facts("Рынок", [["Последний опрос", timeAgo(s.last_poll_at)], ["Известных предложений", fmt(s.listings_known)], ["Пользователей бота", fmt(s.users)]]),
+    h("p", { class: "fine" }, "Бот проверяет рынок по расписанию, поэтому уведомления приходят с задержкой. Сделки проходят в Telegram по ссылке на подарок, бот их не проводит."))];
 }
 
 function sheetView() {
@@ -478,6 +523,7 @@ function sheetView() {
 
   return h("div", { class: "scrim", onclick: (e) => { if (e.target === e.currentTarget) closeSheet(); } },
     h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": f ? "Редактирование фильтра" : "Новый фильтр" },
+      h("div", { class: "grabber", "aria-hidden": "true" }),
       h("div", { class: "top" }, h("h2", null, f ? "Фильтр" : "Новый фильтр"),
         h("button", { class: "icon-btn", type: "button", "aria-label": "Закрыть", onclick: closeSheet }, icon("close"))),
       form));
@@ -498,9 +544,9 @@ function render() {
   const page = h("main", { class: "page" });
 
   if (!tg || !tg.initData) {
-    page.append(emptyState("Откройте через Telegram", "Это мини-приложение работает внутри Telegram: запустите его из чата с ботом."));
+    page.append(emptyState("offers", "Откройте через Telegram", "Это мини-приложение работает внутри Telegram: запустите его из чата с ботом."));
   } else if (state.error) {
-    page.append(emptyState("Не удалось загрузить данные", state.error, "Повторить", loadAll));
+    page.append(emptyState("alert", "Не удалось загрузить данные", state.error, "Повторить", loadAll));
   } else if (!state.me) {
     page.append(...skeletonView());
   } else {
