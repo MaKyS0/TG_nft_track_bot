@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import SendMessage
+from aiogram.methods import SendMessage, SendPhoto
 from aiogram.types import Chat, Message
 from aiohttp.test_utils import TestClient, TestServer
 from sqlalchemy import text
@@ -178,11 +178,14 @@ async def test_notification_sent_to_users_is_escaped_end_to_end():
     session = _Recorder()
     notifier = TelegramNotifier(Bot("123456:TEST", session=session), rate_per_second=1000)
     assert await notifier.notify(1, hostile_listing(), "<script>f</script>") is NotifyResult.SENT
-    sent = [c for c in session.calls if isinstance(c, SendMessage)][0]
+    sent = [c for c in session.calls if isinstance(c, (SendPhoto, SendMessage))][0]
+    body = sent.caption if isinstance(sent, SendPhoto) else sent.text  # photo with caption, or plain text
     for raw in ("<b>x</b>", "<script>", "<i>m</i>", "<u>"):
-        assert raw not in sent.text
+        assert raw not in body
     urls = [b.url for row in sent.reply_markup.inline_keyboard for b in row]
     assert urls == ["https://t.me/nft/Pepe-1"]  # buttons carry only links we built ourselves
+    if isinstance(sent, SendPhoto):
+        assert sent.photo == "https://nft.fragment.com/gift/pepe-1.medium.jpg"
 
 
 def test_unsafe_slugs_from_third_parties_are_rejected():
