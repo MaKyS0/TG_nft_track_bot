@@ -47,7 +47,7 @@ fi
 echo
 echo "Какие рынки включить?"
 echo "  1) только официальный рынок Telegram (рекомендуется)"
-echo "  2) Telegram + MRKT (экспериментально, см. README)"
+echo "  2) Telegram + MRKT (экспериментально: MRKT сейчас отвечает 429 на запросы лотов, см. README)"
 read -r -p "Выбор [1]: " CHOICE
 case "${CHOICE:-1}" in
     2) SOURCES="telegram,mrkt" ;;
