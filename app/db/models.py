@@ -108,6 +108,7 @@ class ListingRow(Base):
             market=self.market,
             external_id=self.external_id,
             buy_url=self.buy_url,
+            seen_at=as_utc(self.first_seen_at),
             model=self.model,
             model_rarity=self.model_rarity,
             backdrop=self.backdrop,

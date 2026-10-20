@@ -63,3 +63,48 @@ async def test_profile_errors_are_not_fatal():
     bot = fake_bot(name="old")
     bot.set_my_name.side_effect = TelegramBadRequest(method=GetMe(), message="Too Many Requests")
     await configure_profile(bot, "NFT Tracker", "https://app.example.com")  # must not raise
+
+
+# ── avatar ─────────────────────────────────────────────────────────────────
+
+
+def _avatar_bot(photo_count):
+    bot = fake_bot()
+    bot.id = 8489614617
+    bot.get_user_profile_photos.return_value = SimpleNamespace(total_count=photo_count)
+    return bot
+
+
+async def test_avatar_is_set_only_when_the_bot_has_no_photo():
+    from app.bot.profile import AVATAR_PATH
+
+    bot = _avatar_bot(0)
+    await configure_profile(bot, "NFT Tracker", "")
+    bot.set_my_profile_photo.assert_awaited_once()
+    photo = bot.set_my_profile_photo.await_args.kwargs["photo"]
+    assert type(photo).__name__ == "InputProfilePhotoStatic" and AVATAR_PATH.is_file()
+
+    existing = _avatar_bot(1)  # a photo already there (e.g. set by hand) is never replaced
+    await configure_profile(existing, "NFT Tracker", "")
+    existing.set_my_profile_photo.assert_not_awaited()
+
+
+async def test_avatar_problems_are_not_fatal_and_missing_file_is_skipped(tmp_path):
+    bot = _avatar_bot(0)
+    bot.set_my_profile_photo.side_effect = TelegramBadRequest(method=GetMe(), message="PHOTO_INVALID")
+    await configure_profile(bot, "NFT Tracker", "")  # must not raise
+
+    skipped = _avatar_bot(0)
+    await configure_profile(skipped, "NFT Tracker", "", avatar=tmp_path / "missing.png")
+    skipped.get_user_profile_photos.assert_not_awaited()
+
+
+def test_bundled_avatar_is_a_square_png_telegram_accepts():
+    import struct
+
+    from app.bot.profile import AVATAR_PATH
+
+    data = AVATAR_PATH.read_bytes()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    width, height = struct.unpack(">II", data[16:24])
+    assert width == height >= 512 and len(data) < 5_000_000

@@ -3,6 +3,7 @@
 import json
 import logging
 import time
+from datetime import timedelta
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -10,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.bot.parsing import FILTER_FIELDS, InvalidValue, validate_filter_payload
 from app.config import Settings
 from app.db import repo
-from app.db.models import User, UserFilter
+from app.db.models import User, UserFilter, utcnow
 from app.domain import NANO_TON, Listing
+from app.matching import matches
 from app.services.search import find_offers
 from app.web.auth import InitDataError, validate_init_data
 from app.web.keys import DB_SESSION, RATE_LIMITER, SESSION_FACTORY, SETTINGS, USER_ID
@@ -72,18 +74,22 @@ def listing_json(item: Listing) -> dict:
         "owner_username": item.owner_username,
         "owner_url": item.owner_url,
         "image_url": item.image_url,
+        "seen_at": item.seen_at.isoformat() if item.seen_at else None,
         "market": item.market,
         "market_title": item.market_title,
         "market_url": item.market_url,
     }
 
 
-def filter_json(f: UserFilter) -> dict:
+def filter_json(f: UserFilter, matches_now: int | None = None) -> dict:
     values = {field: getattr(f, field) for field in FILTER_FIELDS}
     for key in ("min_ton", "max_ton"):  # stored as nanoTON, exposed in TON
         if values[key] is not None:
             values[key] = values[key] / NANO_TON
-    return {"id": f.id, "name": f.name, "is_active": f.is_active, **values}
+    data = {"id": f.id, "name": f.name, "is_active": f.is_active, **values}
+    if matches_now is not None:
+        data["matches"] = matches_now  # offers seen recently that satisfy this filter
+    return data
 
 
 # ── middleware ─────────────────────────────────────────────────────────────
@@ -189,8 +195,12 @@ async def set_notifications(request: web.Request) -> web.Response:
 
 
 async def list_filters(request: web.Request) -> web.Response:
+    settings: Settings = request.app[SETTINGS]
     filters = await repo.list_filters(request[DB_SESSION], request[USER_ID])
-    return web.json_response({"filters": [filter_json(f) for f in filters]})
+    fresh = await repo.fresh_listings(request[DB_SESSION], utcnow() - timedelta(minutes=settings.search_fresh_minutes))
+    return web.json_response(
+        {"filters": [filter_json(f, sum(1 for item in fresh if matches(item, f))) for f in filters]}
+    )
 
 
 async def create_filter(request: web.Request) -> web.Response:

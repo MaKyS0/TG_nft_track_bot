@@ -225,3 +225,44 @@ async def test_first_open_with_parallel_requests_does_not_race(client):
 
     responses = await asyncio.gather(*(client.get(path, headers=auth(555)) for path in ("/api/me", "/api/filters", "/api/offers")))
     assert [r.status for r in responses] == [200, 200, 200]
+
+
+async def test_filters_report_how_many_offers_match_now_and_offers_carry_first_seen_time(client, session_factory, make_listing):
+    from datetime import timedelta
+
+    from app.db import repo as repo_module
+    from app.db.models import ListingRow, utcnow
+
+    pepe = (await (await client.post("/api/filters", json={"collection": "Plush Pepe"}, headers=auth(31))).json())["filter"]
+    other = (await (await client.post("/api/filters", json={"collection": "Heart Locket"}, headers=auth(31))).json())["filter"]
+    async with session_factory() as s:
+        await repo_module.save_listings(s, [make_listing(slug="PlushPepe-1"), make_listing(slug="PlushPepe-2", number=2, price=7)])
+        await s.commit()
+
+    filters = {f["id"]: f for f in (await (await client.get("/api/filters", headers=auth(31))).json())["filters"]}
+    assert filters[pepe["id"]]["matches"] == 2 and filters[other["id"]]["matches"] == 0
+
+    offers = (await (await client.get("/api/offers", headers=auth(31))).json())["offers"]
+    assert all(o["seen_at"] and o["image_url"].endswith(".medium.jpg") for o in offers)
+
+    # create/update responses carry no counter (the app recomputes it with the next list call)
+    created = (await (await client.post("/api/filters", json={}, headers=auth(31))).json())["filter"]
+    assert "matches" not in created
+
+
+async def test_match_counter_ignores_stale_offers_and_other_users_filters(client, session_factory, make_listing):
+    from datetime import timedelta
+
+    from sqlalchemy import update
+
+    from app.db import repo as repo_module
+    from app.db.models import ListingRow, utcnow
+
+    await client.post("/api/filters", json={}, headers=auth(41))
+    async with session_factory() as s:
+        await repo_module.save_listings(s, [make_listing(slug="Old-1"), make_listing(slug="New-2", number=2)])
+        await s.execute(update(ListingRow).where(ListingRow.slug == "Old-1").values(last_seen_at=utcnow() - timedelta(hours=3)))
+        await s.commit()
+    mine = (await (await client.get("/api/filters", headers=auth(41))).json())["filters"]
+    assert [f["matches"] for f in mine] == [1]  # the 3-hour-old offer is outside the freshness window
+    assert (await (await client.get("/api/filters", headers=auth(42))).json())["filters"] == []

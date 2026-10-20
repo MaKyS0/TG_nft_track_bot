@@ -1,13 +1,20 @@
 "use strict";
 
 const tg = window.Telegram && window.Telegram.WebApp;
+const NEW_MINUTES = 15; // an offer counts as "new" for this long after we first saw it
+const REFRESH_MS = 60_000;
+
 const state = {
   tab: "offers",
   me: null,
   filters: null,
   offers: null,
   error: null,
-  sheet: null, // {filter|null, error, busy}
+  sheet: null, // {filter|null}
+  sort: "price", // price | rarity | new
+  market: "all", // all | telegram | mrkt
+  updatedAt: null,
+  refreshing: false,
 };
 
 /* ── tiny DOM helpers (text is always set via textContent, never innerHTML) ── */
@@ -92,13 +99,23 @@ function filterSummary(f) {
   return parts.length ? parts.join(", ") : "Любые подарки";
 }
 
+function minutesSince(iso) {
+  if (!iso) return null;
+  return Math.max(0, (Date.now() - new Date(iso).getTime()) / 60000);
+}
+
 function timeAgo(iso) {
   if (!iso) return "ещё не было";
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  const minutes = Math.round(minutesSince(iso));
   if (minutes < 1) return "только что";
   if (minutes < 60) return `${minutes} мин назад`;
   const hours = Math.round(minutes / 60);
   return hours < 24 ? `${hours} ч назад` : new Date(iso).toLocaleDateString("ru-RU");
+}
+
+function agoMs(ms) {
+  if (!ms) return "только что";
+  return timeAgo(new Date(ms).toISOString());
 }
 
 function hexLuma(hex) {
@@ -107,7 +124,8 @@ function hexLuma(hex) {
 }
 
 const safeColor = (c) => (typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c) ? c : null);
-const safeTgUrl = (u) => (typeof u === "string" && /^https:\/\/t\.me\/[\w./-]+$/.test(u) ? u : null);
+const safeTgUrl = (u) => (typeof u === "string" && /^https:\/\/t\.me\/[\w./?=&%:-]+$/.test(u) ? u : null);
+const safeImageUrl = (u) => (typeof u === "string" && /^https:\/\/nft\.fragment\.com\/gift\/[a-z0-9_-]+\.medium\.jpg$/.test(u) ? u : null);
 
 /* ── Telegram glue ── */
 
@@ -157,24 +175,78 @@ async function api(path, { method = "GET", body } = {}) {
 
 async function loadAll() {
   state.error = null;
+  state.me = null; // shows the skeleton
   render();
   try {
     const [me, filters, offers] = await Promise.all([api("/api/me"), api("/api/filters"), api("/api/offers")]);
     state.me = me;
     state.filters = filters.filters;
     state.offers = offers;
+    state.updatedAt = Date.now();
   } catch (e) {
     state.error = e.message;
   }
   render();
 }
 
+const offersSignature = (o) => (o ? o.offers.map((x) => `${x.slug}:${x.price}`).join(",") + `|${o.total}` : "");
+
+/** Re-read offers (and the match counters). `silent` = background refresh: no spinner, no error popups. */
+async function refreshOffers(silent) {
+  if (state.refreshing || !state.me) return;
+  state.refreshing = true;
+  if (!silent) render();
+  try {
+    const [me, filters, offers] = await Promise.all([api("/api/me"), api("/api/filters"), api("/api/offers")]);
+    const changed = offersSignature(offers) !== offersSignature(state.offers);
+    state.me = me;
+    if (!state.sheet) state.filters = filters.filters;
+    state.offers = offers;
+    state.updatedAt = Date.now();
+    state.refreshing = false;
+    if (changed || !silent) render();
+    else updateStatus();
+  } catch (e) {
+    state.refreshing = false;
+    if (!silent) {
+      render();
+      if (tg && tg.showAlert) tg.showAlert(e.message);
+    }
+  }
+}
+
 async function reloadDerived() {
   try {
-    const [me, offers] = await Promise.all([api("/api/me"), api("/api/offers")]);
+    const [me, filters, offers] = await Promise.all([api("/api/me"), api("/api/filters"), api("/api/offers")]);
     state.me = me;
+    state.filters = filters.filters;
     state.offers = offers;
-  } catch (_) { /* the list itself is already updated; next refresh will fix the rest */ }
+    state.updatedAt = Date.now();
+  } catch (_) { /* the list itself is already updated; the next refresh will fix the rest */ }
+}
+
+/* ── offers: sorting and filtering happen in the browser ── */
+
+const rarestOf = (o) => {
+  const values = [o.model_rarity, o.backdrop_rarity, o.symbol_rarity].filter((v) => v != null);
+  return values.length ? Math.min(...values) : Infinity;
+};
+const priceKey = (o) => [o.currency === "TON" ? 1 : 0, o.price];
+
+const SORTS = {
+  price: { label: "Цена", cmp: (a, b) => priceKey(a)[0] - priceKey(b)[0] || priceKey(a)[1] - priceKey(b)[1] },
+  rarity: { label: "Редкость", cmp: (a, b) => rarestOf(a) - rarestOf(b) || SORTS.price.cmp(a, b) },
+  new: { label: "Новизна", cmp: (a, b) => (b.seen_at || "").localeCompare(a.seen_at || "") },
+};
+
+const isNew = (o) => {
+  const age = minutesSince(o.seen_at);
+  return age != null && age <= NEW_MINUTES;
+};
+
+function visibleOffers() {
+  const list = state.offers.offers.filter((o) => state.market === "all" || o.market === state.market);
+  return [...list].sort(SORTS[state.sort].cmp);
 }
 
 /* ── views ── */
@@ -190,7 +262,14 @@ function emptyState(title, text, actionLabel, action) {
     actionLabel ? h("button", { class: "btn", onclick: action }, actionLabel) : null);
 }
 
-const safeImageUrl = (u) => (typeof u === "string" && /^https:\/\/nft\.fragment\.com\/gift\/[a-z0-9_-]+\.medium\.jpg$/.test(u) ? u : null);
+function skeletonView() {
+  const card = () => h("div", { class: "offer skeleton", "aria-hidden": "true" },
+    h("div", { class: "sk-hero" }), h("div", { class: "sk-line" }), h("div", { class: "sk-line short" }), h("div", { class: "sk-line" }));
+  return [
+    h("div", { class: "head" }, h("div", null, h("h1", null, "Лоты"), h("p", { class: "sk-text", "aria-label": "Загрузка" }, "Загружаю предложения"))),
+    h("div", { class: "offers", role: "status", "aria-label": "Загрузка" }, card(), card(), card()),
+  ];
+}
 
 function offerCard(o) {
   const title = h("div", { class: "caption" },
@@ -212,6 +291,7 @@ function offerCard(o) {
     banner.append(img);
   }
   if (!imageUrl && center && edge && hexLuma(center) * 0.6 + hexLuma(edge) * 0.4 > 150) banner.classList.add("on-light");
+  if (isNew(o)) banner.append(h("span", { class: "badge-new" }, "Новый"));
   banner.append(title);
 
   const traits = h("dl", { class: "traits" });
@@ -227,7 +307,8 @@ function offerCard(o) {
       dot.style.background = `radial-gradient(circle at 35% 30%, ${center}, ${edge})`;
       name.prepend(dot);
     }
-    traits.append(h("dt", null, label), name, h("dd", { class: "rar" }, pct(rarity)));
+    const rare = rarity != null && rarity <= 10; // 1% or rarer
+    traits.append(h("dt", null, label), name, h("dd", { class: "rar" + (rare ? " rare" : ""), title: rare ? "Редкий признак" : null }, pct(rarity)));
   }
 
   const ownerUrl = safeTgUrl(o.owner_url);
@@ -244,24 +325,52 @@ function offerCard(o) {
     actions, owner);
 }
 
+function statusText() {
+  const total = state.offers ? state.offers.total : 0;
+  const found = state.offers && state.offers.has_filters ? `Найдено ${total}.` : "";
+  return `${found} Обновлено ${agoMs(state.updatedAt)}.`.trim();
+}
+function updateStatus() {
+  const el = document.getElementById("status");
+  if (el) el.textContent = statusText();
+}
+
+function segmented(label, options, current, onPick) {
+  return h("div", { class: "seg", role: "group", "aria-label": label },
+    options.map(([value, text]) => h("button", { type: "button", class: "seg-btn", "aria-pressed": String(current === value),
+      onclick: () => { if (current !== value) { haptic(); onPick(value); } } }, text)));
+}
+
 function offersView() {
   const o = state.offers;
-  const subtitle = o.has_filters && o.total
-    ? `Найдено: ${o.total}. Сначала дешёвые.`
-    : `Показываю предложения, замеченные за последние ${state.me.fresh_minutes} мин.`;
-  const head = h("div", { class: "head" }, h("div", null, h("h1", null, "Лоты"), h("p", null, subtitle)),
-    h("button", { class: "icon-btn", "aria-label": "Обновить", onclick: () => { haptic(); loadAll(); } }, icon("refresh")));
+  const head = h("div", { class: "head" },
+    h("div", null, h("h1", null, "Лоты"), h("p", { id: "status" }, statusText())),
+    h("button", { class: "icon-btn" + (state.refreshing ? " spinning" : ""), "aria-label": "Обновить", disabled: state.refreshing,
+      onclick: () => { haptic(); refreshOffers(false); } }, icon("refresh")));
 
-  let body;
   if (!o.has_filters) {
-    body = emptyState("Пока нет активных фильтров", "Создайте фильтр, и здесь появятся подходящие предложения.",
-      "Создать фильтр", () => { state.tab = "filters"; openSheet(null); });
-  } else if (!o.offers.length) {
-    body = emptyState("Ничего не найдено", "Новые подходящие лоты придут уведомлением в чат с ботом, если оно включено.");
-  } else {
-    body = h("div", { class: "offers" }, o.offers.map(offerCard));
+    return [head, demoNote(), emptyState("Пока нет активных фильтров", "Создайте фильтр, и здесь появятся подходящие предложения.",
+      "Создать фильтр", () => { state.tab = "filters"; openSheet(null); })];
   }
-  return [head, demoNote(), body];
+  if (!o.offers.length) {
+    return [head, demoNote(), emptyState("Ничего не найдено", `Я показываю предложения, замеченные за последние ${state.me.fresh_minutes} мин. Новые подходящие лоты придут уведомлением в чат с ботом, если оно включено.`)];
+  }
+
+  const markets = [...new Set(o.offers.map((x) => x.market))];
+  const count = (m) => o.offers.filter((x) => m === "all" || x.market === m).length;
+  const titles = Object.fromEntries(o.offers.map((x) => [x.market, x.market_title]));
+  const toolbar = h("div", { class: "toolbar" },
+    segmented("Сортировка", Object.entries(SORTS).map(([k, v]) => [k, v.label]), state.sort, (v) => { state.sort = v; render(); }),
+    markets.length > 1
+      ? h("div", { class: "chips", role: "group", "aria-label": "Площадка" },
+        [["all", "Все"], ...markets.map((m) => [m, titles[m]])].map(([m, text]) =>
+          h("button", { type: "button", class: "chip", "aria-pressed": String(state.market === m),
+            onclick: () => { haptic(); state.market = m; render(); } }, `${text} ${count(m)}`)))
+      : null);
+
+  const list = visibleOffers();
+  return [head, demoNote(), toolbar,
+    list.length ? h("div", { class: "offers" }, list.map(offerCard)) : emptyState("На этой площадке пока пусто", "Выберите «Все» или другую площадку.")];
 }
 
 function filtersView() {
@@ -281,10 +390,13 @@ function filterRow(f) {
     h("input", { type: "checkbox", role: "switch", checked: f.is_active, "aria-label": `Фильтр «${f.name}» включён`,
       onchange: (e) => toggleFilter(f, e.target.checked, e.target) }),
     h("i"));
+  const pill = f.is_active && f.matches != null
+    ? h("span", { class: "pill" + (f.matches ? " live" : ""), title: "Лотов сейчас подходит" }, f.matches ? `${f.matches} сейчас` : "нет лотов")
+    : null;
   return h("div", { class: "row" + (f.is_active ? "" : " off") },
     h("button", { class: "main", type: "button", onclick: () => openSheet(f) },
       h("span", { class: "name" }, f.name), h("span", { class: "sub" }, filterSummary(f))),
-    toggle);
+    pill, toggle);
 }
 
 function profileView() {
@@ -341,8 +453,10 @@ function sheetView() {
 }
 
 function tabbar() {
+  const total = state.offers && state.offers.has_filters ? state.offers.total : 0;
   const tab = (id, label) => h("button", { class: "tab", role: "tab", "aria-selected": String(state.tab === id),
-    onclick: () => { if (state.tab !== id) { haptic(); state.tab = id; render(); window.scrollTo(0, 0); } } }, icon(id), label);
+    onclick: () => { if (state.tab !== id) { haptic(); state.tab = id; render(); window.scrollTo(0, 0); } } },
+    h("span", { class: "tab-icon" }, icon(id), id === "offers" && total ? h("b", { class: "tab-badge" }, total > 99 ? "99+" : total) : null), label);
   return h("nav", { class: "tabbar", role: "tablist" }, h("div", { class: "inner" },
     tab("offers", "Лоты"), tab("filters", "Фильтры"), tab("profile", "Профиль")));
 }
@@ -356,7 +470,7 @@ function render() {
   } else if (state.error) {
     page.append(emptyState("Не удалось загрузить данные", state.error, "Повторить", loadAll));
   } else if (!state.me) {
-    page.append(h("div", { class: "state" }, h("div", { class: "spinner", role: "status", "aria-label": "Загрузка" }), "Загружаю…"));
+    page.append(...skeletonView());
   } else {
     const views = { offers: offersView, filters: filtersView, profile: profileView };
     page.append(...views[state.tab]().filter(Boolean));
@@ -392,7 +506,6 @@ function closeSheet() {
 
 function readForm(form) {
   const text = (id) => form.elements[id].value.trim() || null;
-  const whole = (id) => text(id);
   const rarity = form.elements.max_rarity.value.trim().replace(",", ".");
   let permille = null; // the API stores rarity in per-mille; people think in percent
   if (rarity) {
@@ -404,8 +517,8 @@ function readForm(form) {
   }
   const body = {
     collection: text("collection"), model: text("model"), backdrop: text("backdrop"), symbol: text("symbol"),
-    min_price: whole("min_price"), max_price: whole("max_price"),
-    min_ton: whole("min_ton"), max_ton: whole("max_ton"), max_rarity: permille,
+    min_price: text("min_price"), max_price: text("max_price"),
+    min_ton: text("min_ton"), max_ton: text("max_ton"), max_rarity: permille,
   };
   const name = text("name");
   if (name) body.name = name;
@@ -474,6 +587,16 @@ async function toggleNotifications(enabled, checkbox) {
 }
 
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.sheet) closeSheet(); });
+
+// Keep the list fresh while the app is open: refresh once a minute, and keep "updated N min ago" honest.
+setInterval(() => {
+  if (document.visibilityState !== "visible" || !state.me || state.sheet) return;
+  if (Date.now() - (state.updatedAt || 0) >= REFRESH_MS) refreshOffers(true);
+  else if (state.tab === "offers") updateStatus();
+}, 15_000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.me && Date.now() - (state.updatedAt || 0) >= REFRESH_MS) refreshOffers(true);
+});
 
 if (tg) {
   tg.ready();
