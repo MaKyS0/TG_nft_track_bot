@@ -1,14 +1,20 @@
+import re
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     # env_ignore_empty: `TG_API_ID=` (as in .env.example / docker-compose) means "not set", not "invalid int".
+    # hide_input_in_errors: a validation error must never echo a (malformed) token or session string.
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore", env_ignore_empty=True
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_ignore_empty=True,
+        hide_input_in_errors=True,
     )
 
     bot_token: SecretStr
@@ -39,6 +45,22 @@ class Settings(BaseSettings):
     web_host: str = "0.0.0.0"
     web_port: int = 8080
     webapp_auth_max_age: int = 86400  # seconds an initData signature stays valid
+
+    @field_validator("bot_token", mode="before")
+    @classmethod
+    def _clean_token(cls, value):
+        # Pasting on a phone often appends a space or newline.
+        return "".join(value.split()) if isinstance(value, str) else value
+
+    @field_validator("bot_token")
+    @classmethod
+    def _check_token_shape(cls, value: SecretStr) -> SecretStr:
+        if not re.fullmatch(r"\d+:[A-Za-z0-9_-]+", value.get_secret_value()):
+            raise ValueError(
+                "BOT_TOKEN has an invalid format: expected something like 123456789:AA... exactly as "
+                "@BotFather sent it (no 'bot' prefix, no quotes, no spaces)"
+            )
+        return value
 
     @model_validator(mode="after")
     def _check_webapp(self) -> "Settings":

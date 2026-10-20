@@ -34,3 +34,17 @@ def test_telethon_source_requires_credentials(monkeypatch):
 def test_token_is_not_leaked_by_repr(monkeypatch):
     s = make(monkeypatch, BOT_TOKEN="123:SECRET", DATABASE_URL="x")
     assert "SECRET" not in repr(s)
+
+
+@pytest.mark.parametrize("pasted", ["8489614617:AAE-x_y12345 ", "  8489614617:AAE-x_y12345\n", "8489614617: AAE-x_y12345"])
+def test_token_whitespace_from_pasting_is_stripped(monkeypatch, pasted):
+    s = make(monkeypatch, BOT_TOKEN=pasted, DATABASE_URL="x")
+    assert s.bot_token.get_secret_value() == "8489614617:AAE-x_y12345"
+
+
+@pytest.mark.parametrize("bad", ["bot8489614617:AAE", "8489614617", "AAE-x_y12345", "'8489614617:AAE'", "8489614617:AA E!"])
+def test_malformed_token_fails_early_without_leaking_it(monkeypatch, bad):
+    with pytest.raises(ValidationError) as info:
+        make(monkeypatch, BOT_TOKEN=bad, DATABASE_URL="x")
+    assert "invalid format" in str(info.value)
+    assert "AAE" not in str(info.value).replace("AA...", "")

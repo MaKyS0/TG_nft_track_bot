@@ -4,7 +4,7 @@ import logging
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramNetworkError, TelegramUnauthorizedError
+from aiogram.exceptions import TelegramNetworkError, TelegramNotFound, TelegramUnauthorizedError
 from aiogram.fsm.storage.base import BaseStorage
 from aiogram.fsm.storage.memory import MemoryStorage
 
@@ -81,8 +81,11 @@ async def amain() -> None:
             )
         try:
             me = await bot.get_me()
-        except TelegramUnauthorizedError:
-            log.critical("BOT_TOKEN was rejected by Telegram: check the token from @BotFather")
+        except (TelegramUnauthorizedError, TelegramNotFound):
+            log.critical(
+                "Telegram does not recognise BOT_TOKEN (wrong, incomplete or revoked): "
+                "copy it again from @BotFather and fix it in .env"
+            )
             raise SystemExit(1) from None
         except TelegramNetworkError as e:
             log.critical("Cannot reach api.telegram.org: %s", e)

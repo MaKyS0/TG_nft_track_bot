@@ -23,12 +23,15 @@ AIOHTTP_NO_EXTENSIONS=1 MULTIDICT_NO_EXTENSIONS=1 YARL_NO_EXTENSIONS=1 FROZENLIS
 
 if [ ! -f .env ]; then
     echo "==> Настройка"
-    read -r -s -p "Вставьте токен бота от @BotFather (ввод скрыт): " TOKEN
-    echo
-    if [ -z "$TOKEN" ]; then
-        echo "Токен пустой, запустите скрипт снова." >&2
-        exit 1
-    fi
+    while true; do
+        read -r -s -p "Вставьте токен бота от @BotFather (ввод скрыт): " TOKEN
+        echo
+        TOKEN="$(printf '%s' "$TOKEN" | tr -d '[:space:]')"   # paste often adds a space/newline
+        if [[ "$TOKEN" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]]; then
+            break
+        fi
+        echo "Это не похоже на токен. Он выглядит как 123456789:AAxxxxxxxx (без пробелов, кавычек и слова bot). Попробуйте ещё раз."
+    done
     mkdir -p data
     umask 077
     {
