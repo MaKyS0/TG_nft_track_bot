@@ -259,13 +259,14 @@ async def test_old_database_is_upgraded_in_place(tmp_path):
         await conn.execute(text("INSERT INTO listings (listing_key, slug, collection_id, collection, number, price, currency, "
                                 "first_seen_at, last_seen_at) VALUES ('A-1|5|XTR', 'A-1', 1, 'A', 1, 5, 'XTR', '2026-01-01', '2026-01-01')"))
         for statement in ("ALTER TABLE listings DROP COLUMN market", "ALTER TABLE user_filters DROP COLUMN min_ton",
-                          "ALTER TABLE user_filters DROP COLUMN max_ton"):
+                          "ALTER TABLE user_filters DROP COLUMN max_ton", "ALTER TABLE listings DROP COLUMN is_new"):
             await conn.execute(text(statement))  # what an earlier version's database looks like
     await init_db(engine)
     await init_db(engine)  # idempotent
     async with engine.connect() as conn:
         market = (await conn.execute(text("SELECT market FROM listings"))).scalar_one()
         assert market == "telegram"  # existing rows get the default market
+        assert (await conn.execute(text("SELECT is_new FROM listings"))).scalar_one() in (0, False)  # never "new"
         row = (await conn.execute(text("SELECT name, max_price, min_ton, max_ton FROM user_filters"))).one()
         assert tuple(row) == ("old filter", 500, None, None)
     await engine.dispose()

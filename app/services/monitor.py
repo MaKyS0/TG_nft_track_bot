@@ -103,7 +103,9 @@ class Monitor:
             # Each market has its own first pass, so enabling a new market later does not announce its
             # whole existing inventory as "new".
             seeded = {m: await repo.is_collection_seeded(session, repo.poll_key(collection.id, m)) for m in result.markets_ok}
-            new = [item for item in await repo.save_listings(session, result.listings) if seeded.get(item.market)]
+            announced = {market for market, ok in seeded.items() if ok}  # their first pass is done
+            inserted = await repo.save_listings(session, result.listings, announced)
+            new = [item for item in inserted if item.market in announced]
             baseline = [m for m, ok in seeded.items() if not ok]
             for market in result.markets_ok:
                 await repo.mark_collection_polled(session, repo.poll_key(collection.id, market))

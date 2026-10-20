@@ -2,7 +2,12 @@
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const NEW_MINUTES = 15; // an offer counts as "new" for this long after we first saw it
+const NEW_HOURS = 6; // the "Новые" view keeps an offer this long after we first saw it
 const REFRESH_MS = 60_000;
+
+function loadView() {
+  try { return localStorage.getItem("view") === "all" ? "all" : "new"; } catch (_) { return "new"; }
+}
 
 const state = {
   tab: "offers",
@@ -11,7 +16,8 @@ const state = {
   offers: null,
   error: null,
   sheet: null, // {filter|null}
-  sort: "price", // price | rarity | new
+  view: loadView(), // new (only gifts that appeared since tracking began) | all
+  sort: "new", // price | rarity | new
   market: "all", // all | telegram | mrkt
   updatedAt: null,
   refreshing: false,
@@ -244,9 +250,23 @@ const isNew = (o) => {
   return age != null && age <= NEW_MINUTES;
 };
 
+// "new" = discovered after the first pass over its collection (the pre-existing inventory is never new)
+const isFresh = (o) => {
+  if (!o.is_new) return false;
+  const age = minutesSince(o.seen_at);
+  return age != null && age <= NEW_HOURS * 60;
+};
+
 function visibleOffers() {
-  const list = state.offers.offers.filter((o) => state.market === "all" || o.market === state.market);
+  const list = state.offers.offers.filter((o) =>
+    (state.market === "all" || o.market === state.market) && (state.view === "all" || isFresh(o)));
   return [...list].sort(SORTS[state.sort].cmp);
+}
+
+function setView(view) {
+  state.view = view;
+  try { localStorage.setItem("view", view); } catch (_) { /* private mode: the choice just isn't remembered */ }
+  render();
 }
 
 /* ── views ── */
@@ -326,8 +346,9 @@ function offerCard(o) {
 }
 
 function statusText() {
-  const total = state.offers ? state.offers.total : 0;
-  const found = state.offers && state.offers.has_filters ? `Найдено ${total}.` : "";
+  const shown = state.offers && state.offers.has_filters
+    ? (state.view === "all" ? state.offers.total : state.offers.offers.filter(isFresh).length) : 0;
+  const found = state.offers && state.offers.has_filters ? `${state.view === "all" ? "Найдено" : "Новых"} ${shown}.` : "";
   return `${found} Обновлено ${agoMs(state.updatedAt)}.`.trim();
 }
 function updateStatus() {
@@ -357,9 +378,12 @@ function offersView() {
   }
 
   const markets = [...new Set(o.offers.map((x) => x.market))];
-  const count = (m) => o.offers.filter((x) => m === "all" || x.market === m).length;
+  const inView = (x) => state.view === "all" || isFresh(x);
+  const count = (m) => o.offers.filter((x) => (m === "all" || x.market === m) && inView(x)).length;
   const titles = Object.fromEntries(o.offers.map((x) => [x.market, x.market_title]));
+  const freshTotal = o.offers.filter(isFresh).length;
   const toolbar = h("div", { class: "toolbar" },
+    segmented("Что показывать", [["new", `Новые ${freshTotal}`], ["all", `Все ${o.offers.length}`]], state.view, setView),
     segmented("Сортировка", Object.entries(SORTS).map(([k, v]) => [k, v.label]), state.sort, (v) => { state.sort = v; render(); }),
     markets.length > 1
       ? h("div", { class: "chips", role: "group", "aria-label": "Площадка" },
@@ -369,8 +393,15 @@ function offersView() {
       : null);
 
   const list = visibleOffers();
-  return [head, demoNote(), toolbar,
-    list.length ? h("div", { class: "offers" }, list.map(offerCard)) : emptyState("На этой площадке пока пусто", "Выберите «Все» или другую площадку.")];
+  let empty;
+  if (state.view === "new" && !freshTotal) {
+    empty = emptyState("Новых лотов пока нет",
+      "Я показываю только подарки, появившиеся уже после начала слежения (первый обход только запоминает то, что уже продаётся). Как только выставят новый, он появится здесь сам.",
+      "Показать все", () => setView("all"));
+  } else {
+    empty = emptyState("На этой площадке пока пусто", "Выберите «Все» или другую площадку.");
+  }
+  return [head, demoNote(), toolbar, list.length ? h("div", { class: "offers" }, list.map(offerCard)) : empty];
 }
 
 function filtersView() {
@@ -453,7 +484,8 @@ function sheetView() {
 }
 
 function tabbar() {
-  const total = state.offers && state.offers.has_filters ? state.offers.total : 0;
+  const offers = state.offers && state.offers.has_filters ? state.offers.offers : [];
+  const total = state.view === "all" ? offers.length : offers.filter(isFresh).length;
   const tab = (id, label) => h("button", { class: "tab", role: "tab", "aria-selected": String(state.tab === id),
     onclick: () => { if (state.tab !== id) { haptic(); state.tab = id; render(); window.scrollTo(0, 0); } } },
     h("span", { class: "tab-icon" }, icon(id), id === "offers" && total ? h("b", { class: "tab-badge" }, total > 99 ? "99+" : total) : null), label);

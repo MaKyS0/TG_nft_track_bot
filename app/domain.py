@@ -71,6 +71,7 @@ class Listing:
     external_id: str | None = None  # the market's own id of the offer (MRKT), when it has one
     buy_url: str | None = None  # deep link into the market app, validated by the source that built it
     seen_at: datetime | None = None  # when we first saw the offer (filled from the database, not by sources)
+    is_new: bool = False  # discovered after the first pass over its collection (set by the monitor, stored in the DB)
 
     @property
     def key(self) -> str:

@@ -205,6 +205,7 @@ async def test_offers_follow_filters_cheapest_first(client, session_factory, mak
     pricey = data["offers"][1]
     assert pricey["backdrop_center"] == "#e3be62" and pricey["url"] == "https://t.me/nft/PlushPepe-1"
     assert pricey["owner_url"] == "https://t.me/seller"
+    assert pricey["is_new"] is False  # saved without a market baseline: plain inventory
 
 
 async def test_static_page_and_security_headers(client):

@@ -1,7 +1,7 @@
 """All database access. Functions take an AsyncSession and never commit (callers own the transaction)."""
 
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -106,8 +106,13 @@ async def active_filters_for_delivery(session: AsyncSession) -> Sequence[UserFil
 # ── listings ───────────────────────────────────────────────────────────────
 
 
-async def save_listings(session: AsyncSession, listings: Sequence[Listing]) -> list[Listing]:
-    """Store offers; return the ones never seen before. Already known offers just get ``last_seen_at`` bumped."""
+async def save_listings(
+    session: AsyncSession, listings: Sequence[Listing], new_markets: Collection[str] = ()
+) -> list[Listing]:
+    """Store offers; return the ones never seen before. Already known offers just get ``last_seen_at`` bumped.
+
+    ``new_markets``: markets whose first-seen offers count as *new* (their first pass is already done).
+    Offers of other markets are stored as plain inventory (``is_new = False``)."""
     now = utcnow()
     new: list[Listing] = []
     known_keys: list[str] = []
@@ -125,6 +130,7 @@ async def save_listings(session: AsyncSession, listings: Sequence[Listing]) -> l
                 market=item.market,
                 external_id=item.external_id,
                 buy_url=item.buy_url,
+                is_new=item.market in new_markets,
                 model=item.model,
                 model_rarity=item.model_rarity,
                 backdrop=item.backdrop,

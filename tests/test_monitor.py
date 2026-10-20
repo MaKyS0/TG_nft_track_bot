@@ -180,3 +180,35 @@ async def test_search_snapshot_only_returns_fresh_offers(session_factory, make_l
 def test_listing_key_changes_with_price(make_listing):
     a = make_listing()
     assert a.key != dataclasses.replace(a, price=a.price + 1).key
+
+
+async def test_only_offers_found_after_the_first_pass_are_marked_new(monitor, source, session_factory, make_listing):
+    from app.db.repo import fresh_listings
+    from app.db.models import utcnow
+    from datetime import timedelta
+
+    await add_user(session_factory, 1, collection="Plush Pepe")
+    source.offers[PEPE.id] = [make_listing(slug="PlushPepe-1", price=1000)]
+    await monitor.poll_once()  # baseline
+
+    source.offers[PEPE.id] = [make_listing(slug="PlushPepe-1", price=1000), make_listing(slug="PlushPepe-2", number=2),
+                              make_listing(slug="PlushPepe-1", price=900)]  # a relist at a new price
+    await monitor.poll_once()
+
+    async with session_factory() as s:
+        rows = await fresh_listings(s, utcnow() - timedelta(hours=1))
+    flags = {(x.slug, x.price): x.is_new for x in rows}
+    assert flags == {("PlushPepe-1", 1000): False, ("PlushPepe-2", 1000): True, ("PlushPepe-1", 900): True}
+
+
+async def test_save_listings_marks_new_only_for_announced_markets(session_factory, make_listing):
+    from app.db import repo
+
+    async with session_factory() as s:
+        await repo.save_listings(s, [make_listing(slug="A-1")], new_markets={"mrkt"})
+        await repo.save_listings(s, [make_listing(slug="B-2", number=2)], new_markets={"telegram"})
+        await s.commit()
+        from app.db.models import utcnow
+        from datetime import timedelta
+        rows = {x.slug: x.is_new for x in await repo.fresh_listings(s, utcnow() - timedelta(hours=1))}
+    assert rows == {"A-1": False, "B-2": True}

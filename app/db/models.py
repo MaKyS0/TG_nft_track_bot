@@ -83,6 +83,9 @@ class ListingRow(Base):
     market: Mapped[str] = mapped_column(String(16), default="telegram", server_default="telegram")
     external_id: Mapped[str | None] = mapped_column(String(64))
     buy_url: Mapped[str | None] = mapped_column(String(300))
+    # False for the inventory memorised during the first pass; True for offers discovered afterwards.
+    # Rows that existed before this column was added default to False, i.e. they are never shown as new.
+    is_new: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     model: Mapped[str | None] = mapped_column(String(128))
     model_rarity: Mapped[int | None] = mapped_column(Integer)
     backdrop: Mapped[str | None] = mapped_column(String(128))
@@ -109,6 +112,7 @@ class ListingRow(Base):
             external_id=self.external_id,
             buy_url=self.buy_url,
             seen_at=as_utc(self.first_seen_at),
+            is_new=bool(self.is_new),
             model=self.model,
             model_rarity=self.model_rarity,
             backdrop=self.backdrop,

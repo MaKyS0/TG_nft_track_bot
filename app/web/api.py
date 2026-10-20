@@ -75,6 +75,7 @@ def listing_json(item: Listing) -> dict:
         "owner_url": item.owner_url,
         "image_url": item.image_url,
         "seen_at": item.seen_at.isoformat() if item.seen_at else None,
+        "is_new": item.is_new,
         "market": item.market,
         "market_title": item.market_title,
         "market_url": item.market_url,
