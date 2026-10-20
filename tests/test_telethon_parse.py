@@ -40,14 +40,14 @@ def user(**kw):
 
 
 def test_parses_attributes_price_and_public_owner():
-    listing = parse_resale_gift(unique_gift(), {77: user(username="ann")}, {}, COLLECTION)
+    listing = parse_resale_gift(unique_gift(), {77: user(username="annlee")}, {}, COLLECTION)
     assert listing is not None
     assert (listing.slug, listing.collection, listing.number) == ("PlushPepe-42", "Plush Pepe", 42)
     assert (listing.model, listing.model_rarity) == ("Classic", 15)
     assert (listing.symbol, listing.symbol_rarity) == ("Stars", 25)
     assert (listing.backdrop, listing.backdrop_rarity) == ("Black", None)  # tier-only rarity has no number
     assert (listing.price, listing.currency) == (1500, "XTR")
-    assert listing.owner_url == "https://t.me/ann"
+    assert listing.owner_url == "https://t.me/annlee"
     assert listing.url == "https://t.me/nft/PlushPepe-42"
 
 

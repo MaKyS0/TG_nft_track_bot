@@ -9,7 +9,7 @@ from app.db import repo
 
 router = Router(name="stats")
 
-SOURCE_TITLES = {"mock": "демо-данные (mock)", "telethon": "маркетплейс Telegram (MTProto)"}
+SOURCE_TITLES = {"mock": "демо-данные (mock)", "telegram": "маркетплейс Telegram", "mrkt": "MRKT"}
 
 
 @router.message(F.text == BTN_STATS)
@@ -29,5 +29,5 @@ async def stats(message: Message, session: AsyncSession, state: FSMContext, sett
         f"• известных предложений: {total.listings_known}\n"
         f"• отправлено уведомлений: {total.notifications_sent}\n"
         f"• последний опрос рынка: {last_poll}\n"
-        f"• источник данных: {SOURCE_TITLES.get(settings.gift_source, settings.gift_source)}"
+        f"• источник данных: {', '.join(SOURCE_TITLES[name] for name in settings.sources)}"
     )

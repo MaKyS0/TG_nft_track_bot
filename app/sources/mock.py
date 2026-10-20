@@ -26,7 +26,8 @@ class MockGiftSource(GiftSource):
     name = "mock"
 
     def __init__(self, seed: int | None = None, new_listing_probability: float = 0.6) -> None:
-        self._rng = random.Random(seed)
+        # Demo data only, nothing security related depends on this generator.
+        self._rng = random.Random(seed)  # nosec B311
         self._probability = new_listing_probability
         self._collections = [Collection(id=i + 1, title=t, resale_count=3) for i, t in enumerate(_COLLECTIONS)]
         self._market: dict[int, list[Listing]] = {c.id: [] for c in self._collections}

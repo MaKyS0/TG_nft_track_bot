@@ -34,6 +34,8 @@ class TelegramNotifier:
     async def notify(self, user_id: int, listing: Listing, filter_name: str) -> NotifyResult:
         text = f"🔔 <b>Новое предложение по вашему фильтру</b>\n\n{format_listing(listing, filter_name=filter_name)}\n\n{DEAL_NOTE}"
         buttons = [[InlineKeyboardButton(text="🔗 Открыть подарок", url=listing.url)]]
+        if listing.market_url:
+            buttons.append([InlineKeyboardButton(text=f"🛒 Купить на {listing.market_title}", url=listing.market_url)])
         if listing.owner_url:
             buttons.append([InlineKeyboardButton(text="👤 Профиль владельца", url=listing.owner_url)])
         markup = InlineKeyboardMarkup(inline_keyboard=buttons)

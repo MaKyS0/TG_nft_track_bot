@@ -1,8 +1,23 @@
+import re
 from dataclasses import dataclass
 
 STARS = "XTR"
 TON = "TON"
 NANO_TON = 1_000_000_000
+
+TELEGRAM = "telegram"
+MRKT = "mrkt"
+MARKET_TITLES = {TELEGRAM: "Telegram", MRKT: "MRKT"}
+# Where to buy, per market (Telegram sells on the gift page itself).
+MARKET_URLS = {MRKT: "https://t.me/mrkt/app"}
+
+# Values below come from third parties: build links only from strings that match these patterns.
+_SLUG_RE = re.compile(r"[A-Za-z0-9_-]{1,80}")
+_USERNAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")  # Telegram: 5-32 chars
+
+
+def is_safe_slug(value: str) -> bool:
+    return bool(_SLUG_RE.fullmatch(value))
 
 
 class SourceError(Exception):
@@ -50,11 +65,22 @@ class Listing:
     owner_id: int | None = None
     owner_username: str | None = None
     owner_name: str | None = None
+    market: str = TELEGRAM
 
     @property
     def key(self) -> str:
-        """Identity of an *offer*: the same gift at a new price is a new offer."""
-        return f"{self.slug}|{self.price}|{self.currency}"
+        """Identity of an *offer*: the same gift at a new price (or on another market) is a new offer."""
+        base = f"{self.slug}|{self.price}|{self.currency}"
+        return base if self.market == TELEGRAM else f"{self.market}:{base}"
+
+    @property
+    def market_title(self) -> str:
+        return MARKET_TITLES.get(self.market, self.market)
+
+    @property
+    def market_url(self) -> str | None:
+        """Where the offer can be bought when that is not the Telegram gift page itself."""
+        return MARKET_URLS.get(self.market)
 
     @property
     def url(self) -> str:
@@ -62,4 +88,6 @@ class Listing:
 
     @property
     def owner_url(self) -> str | None:
-        return f"https://t.me/{self.owner_username}" if self.owner_username else None
+        if self.owner_username and _USERNAME_RE.fullmatch(self.owner_username):
+            return f"https://t.me/{self.owner_username}"
+        return None

@@ -16,7 +16,7 @@ class FakeSource(GiftSource):
     name = "fake"
 
     def __init__(self):
-        self.market = {PEPE.id: [], LOCKET.id: []}
+        self.offers = {PEPE.id: [], LOCKET.id: []}
         self.fetched = []
         self.fail_with: Exception | None = None
 
@@ -27,7 +27,7 @@ class FakeSource(GiftSource):
         self.fetched.append(collection.title)
         if self.fail_with:
             raise self.fail_with
-        return list(self.market[collection.id])
+        return list(self.offers[collection.id])
 
 
 class FakeNotifier:
@@ -72,13 +72,13 @@ async def test_no_active_filters_means_no_source_calls(monitor, source):
 
 async def test_baseline_is_silent_then_new_offer_notifies_once(monitor, source, notifier, session_factory, make_listing):
     await add_user(session_factory, 1, collection="Plush Pepe")
-    source.market[PEPE.id] = [make_listing(slug="PlushPepe-1")]
+    source.offers[PEPE.id] = [make_listing(slug="PlushPepe-1")]
 
     assert await monitor.poll_once() == 0  # baseline: remembered, not announced
     assert notifier.sent == []
     assert source.fetched == ["Plush Pepe"]  # only the collection the filter asks for
 
-    source.market[PEPE.id].insert(0, make_listing(slug="PlushPepe-2", number=2))
+    source.offers[PEPE.id].insert(0, make_listing(slug="PlushPepe-2", number=2))
     assert await monitor.poll_once() == 1
     assert [s[1] for s in notifier.sent] == ["PlushPepe-2|1000|XTR"]
 
@@ -88,9 +88,9 @@ async def test_baseline_is_silent_then_new_offer_notifies_once(monitor, source, 
 
 async def test_price_change_is_a_new_offer(monitor, source, notifier, session_factory, make_listing):
     await add_user(session_factory, 1)
-    source.market[PEPE.id] = [make_listing(price=1000)]
+    source.offers[PEPE.id] = [make_listing(price=1000)]
     await monitor.poll_once()
-    source.market[PEPE.id] = [make_listing(price=900)]
+    source.offers[PEPE.id] = [make_listing(price=900)]
     await monitor.poll_once()
     assert [s[1] for s in notifier.sent] == ["PlushPepe-1|900|XTR"]
 
@@ -99,7 +99,7 @@ async def test_filters_decide_who_is_notified(monitor, source, notifier, session
     await add_user(session_factory, 1, collection="Plush Pepe", max_price=500)
     await add_user(session_factory, 2, collection="Plush Pepe", min_price=500)
     await monitor.poll_once()  # baseline (empty market)
-    source.market[PEPE.id] = [make_listing(price=1000)]
+    source.offers[PEPE.id] = [make_listing(price=1000)]
     await monitor.poll_once()
     assert [s[0] for s in notifier.sent] == [2]
 
@@ -113,7 +113,7 @@ async def test_one_notification_per_user_even_with_several_matching_filters(
         extra.model = "Classic"
         await s.commit()
     await monitor.poll_once()
-    source.market[PEPE.id] = [make_listing()]
+    source.offers[PEPE.id] = [make_listing()]
     await monitor.poll_once()
     assert len(notifier.sent) == 1
 
@@ -137,11 +137,11 @@ async def test_blocked_user_is_marked_and_not_retried(monitor, source, notifier,
     await add_user(session_factory, 1)
     await monitor.poll_once()
     notifier.result = NotifyResult.BLOCKED
-    source.market[PEPE.id] = [make_listing(slug="A-1")]
+    source.offers[PEPE.id] = [make_listing(slug="A-1")]
     await monitor.poll_once()
     async with session_factory() as s:
         assert (await s.get(repo.User, 1)).is_blocked is True
-    source.market[PEPE.id].append(make_listing(slug="B-2"))
+    source.offers[PEPE.id].append(make_listing(slug="B-2"))
     await monitor.poll_once()
     assert len(notifier.sent) == 1  # no more attempts for the blocked user
 

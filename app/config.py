@@ -1,9 +1,29 @@
 import re
 from functools import lru_cache
-from typing import Literal
 
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+KNOWN_SOURCES = {"mock", "telegram", "mrkt"}
+
+
+def parse_sources(value: str) -> list[str]:
+    names = []
+    for raw in value.split(","):
+        name = raw.strip().lower()
+        name = "telegram" if name == "telethon" else name
+        if not name:
+            continue
+        if name not in KNOWN_SOURCES:
+            raise ValueError(f"unknown GIFT_SOURCE entry {name!r}; allowed: {', '.join(sorted(KNOWN_SOURCES))}")
+        if name not in names:
+            names.append(name)
+    if not names:
+        raise ValueError("GIFT_SOURCE is empty")
+    if "mock" in names and len(names) > 1:
+        raise ValueError("GIFT_SOURCE=mock cannot be combined with real markets")
+    return names
 
 
 class Settings(BaseSettings):
@@ -21,7 +41,14 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str = ""
 
-    gift_source: Literal["mock", "telethon"] = "mock"
+    # Comma-separated markets: mock | telegram (alias: telethon) | mrkt. Example: "telegram,mrkt".
+    gift_source: str = "mock"
+    # MRKT has no documented catalogue endpoint: with "telegram" enabled its collections follow Telegram's;
+    # for MRKT alone list them here (comma-separated names).
+    mrkt_collections: str = ""
+    mrkt_request_delay: float = 2.0
+    mrkt_page_size: int = 20
+    mrkt_max_pages: int = 3
     tg_api_id: int | None = None
     tg_api_hash: SecretStr | None = None
     tg_session_string: SecretStr | None = None
@@ -42,7 +69,7 @@ class Settings(BaseSettings):
 
     # Mini App: public HTTPS URL that reaches the built-in web server (empty = mini app disabled).
     webapp_url: str = ""
-    web_host: str = "0.0.0.0"
+    web_host: str = "127.0.0.1"  # loopback by default; Docker sets 0.0.0.0 (port is published to localhost only)
     web_port: int = 8080
     webapp_auth_max_age: int = 86400  # seconds an initData signature stays valid
 
@@ -69,9 +96,20 @@ class Settings(BaseSettings):
         self.webapp_url = self.webapp_url.rstrip("/")
         return self
 
+    @property
+    def sources(self) -> list[str]:
+        return parse_sources(self.gift_source)
+
+    @property
+    def mrkt_collection_names(self) -> list[str]:
+        return [name.strip() for name in self.mrkt_collections.split(",") if name.strip()]
+
     @model_validator(mode="after")
     def _check_telethon(self) -> "Settings":
-        if self.gift_source == "telethon":
+        sources = parse_sources(self.gift_source)
+        if "mrkt" in sources and "telegram" not in sources and not self.mrkt_collection_names:
+            raise ValueError("GIFT_SOURCE=mrkt without telegram requires MRKT_COLLECTIONS (comma-separated names)")
+        if "telegram" in sources or "mrkt" in sources:  # both log in with the operator's Telegram account
             missing = [
                 name
                 for name, value in (
@@ -82,7 +120,7 @@ class Settings(BaseSettings):
                 if not value
             ]
             if missing:
-                raise ValueError(f"GIFT_SOURCE=telethon requires: {', '.join(missing)}")
+                raise ValueError(f"GIFT_SOURCE={self.gift_source} requires: {', '.join(missing)}")
         return self
 
 

@@ -59,6 +59,8 @@ class UserFilter(Base):
     symbol: Mapped[str | None] = mapped_column(String(128))
     min_price: Mapped[int | None] = mapped_column(BigInteger)  # Stars
     max_price: Mapped[int | None] = mapped_column(BigInteger)  # Stars
+    min_ton: Mapped[int | None] = mapped_column(BigInteger)  # nanoTON
+    max_ton: Mapped[int | None] = mapped_column(BigInteger)  # nanoTON
     max_rarity: Mapped[int | None] = mapped_column(Integer)  # per-mille
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -78,6 +80,7 @@ class ListingRow(Base):
     number: Mapped[int] = mapped_column(Integer)
     price: Mapped[int] = mapped_column(BigInteger)
     currency: Mapped[str] = mapped_column(String(8))
+    market: Mapped[str] = mapped_column(String(16), default="telegram", server_default="telegram")
     model: Mapped[str | None] = mapped_column(String(128))
     model_rarity: Mapped[int | None] = mapped_column(Integer)
     backdrop: Mapped[str | None] = mapped_column(String(128))
@@ -100,6 +103,7 @@ class ListingRow(Base):
             number=self.number,
             price=self.price,
             currency=self.currency,
+            market=self.market,
             model=self.model,
             model_rarity=self.model_rarity,
             backdrop=self.backdrop,

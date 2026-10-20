@@ -10,6 +10,8 @@ FIELD_LABELS = {
     "symbol": "Символ",
     "min_price": "Мин. цена (⭐)",
     "max_price": "Макс. цена (⭐)",
+    "min_ton": "Мин. цена (TON)",
+    "max_ton": "Макс. цена (TON)",
     "max_rarity": "Редкость (‰, не больше)",
 }
 
@@ -23,11 +25,16 @@ def thousands(n: int) -> str:
     return f"{n:,}".replace(",", " ")
 
 
+def ton_str(nano: int) -> str:
+    whole, frac = divmod(nano, NANO_TON)
+    digits = f"{frac:09d}".rstrip("0")
+    return f"{thousands(whole)}.{digits}" if digits else thousands(whole)
+
+
 def format_price(price: int, currency: str) -> str:
     if currency == STARS:
         return f"⭐ {thousands(price)}"
-    ton = f"{price / NANO_TON:.4f}".rstrip("0").rstrip(".")
-    return f"💎 {ton} TON"
+    return f"💎 {ton_str(price)} TON"
 
 
 def format_rarity(permille: int | None) -> str:
@@ -56,6 +63,8 @@ def format_listing(listing: Listing, *, filter_name: str | None = None, index: i
     if listing.symbol:
         lines.append(f"✨ Символ: {escape(listing.symbol)}{format_rarity(listing.symbol_rarity)}")
     lines.append(f"💰 Цена: <b>{format_price(listing.price, listing.currency)}</b>")
+    if listing.market_url:
+        lines.append(f"🏪 Продаётся на: <b>{escape(listing.market_title)}</b>")
     lines.append(f"👤 Владелец: {format_owner(listing)}")
     if filter_name:
         lines.append(f"🔎 Фильтр: {escape(filter_name)}")
@@ -68,7 +77,10 @@ def format_filter(f: FilterLike) -> str:
     for field, label in FIELD_LABELS.items():
         value = getattr(f, field)
         if value is not None and value != "":
-            shown = thousands(value) if isinstance(value, int) else escape(str(value))
+            if field in ("min_ton", "max_ton"):
+                shown = ton_str(value)
+            else:
+                shown = thousands(value) if isinstance(value, int) else escape(str(value))
             parts.append(f"• {label}: <b>{shown}</b>")
     return "\n".join(parts) if parts else "• без ограничений (подойдёт любой подарок)"
 

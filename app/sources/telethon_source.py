@@ -10,20 +10,15 @@ User accounts of bot users are never involved and no codes/passwords are handled
 logs in once with ``scripts/make_session.py`` and supplies the resulting session string as a secret.
 """
 
-import asyncio
 import logging
 
-from telethon import TelegramClient, errors
-from telethon.sessions import StringSession
 from telethon.tl import functions, types
 
-from app.domain import STARS, TON, Collection, Listing, SourceError, SourceRateLimited
-from app.ratelimit import AsyncRateLimiter
+from app.domain import STARS, TON, Collection, Listing, SourceError, is_safe_slug
 from app.sources.base import GiftSource
+from app.sources.telegram_account import TelegramAccount
 
 log = logging.getLogger(__name__)
-
-REQUEST_TIMEOUT = 30
 
 
 def _rarity(attribute: types.TypeStarGiftAttribute) -> int | None:
@@ -81,7 +76,7 @@ def parse_resale_gift(
     if not isinstance(gift, types.StarGiftUnique):
         return None
     price = _price(gift)
-    if price is None:
+    if price is None or not is_safe_slug(gift.slug):
         return None
 
     model = symbol = backdrop = None
@@ -120,48 +115,16 @@ def parse_resale_gift(
 
 
 class TelethonGiftSource(GiftSource):
-    name = "telethon"
+    """Telegram's own gift marketplace (official MTProto methods)."""
 
-    def __init__(self, api_id: int, api_hash: str, session_string: str, request_delay: float = 1.5) -> None:
-        self._api_id = api_id
-        self._api_hash = api_hash
-        self._session_string = session_string
-        self._limiter = AsyncRateLimiter(1.0 / max(request_delay, 0.05))
-        self._client: TelegramClient | None = None
+    name = "telegram"
+    market = "telegram"
 
-    async def start(self) -> None:
-        # flood_sleep_threshold=0: never sleep silently inside Telethon, surface FloodWait to the monitor.
-        client = TelegramClient(
-            StringSession(self._session_string), self._api_id, self._api_hash, flood_sleep_threshold=0
-        )
-        try:
-            await client.connect()
-            if not await client.is_user_authorized():
-                raise SourceError("TG_SESSION_STRING is not authorized; regenerate it with scripts/make_session.py")
-        except (OSError, errors.RPCError) as e:
-            await client.disconnect()
-            raise SourceError(f"cannot connect to Telegram: {e}") from e
-        self._client = client
-        log.info("Telethon source connected")
-
-    async def stop(self) -> None:
-        if self._client is not None:
-            await self._client.disconnect()
-            self._client = None
-
-    async def _call(self, request):
-        if self._client is None:
-            raise SourceError("source is not started")
-        await self._limiter.acquire()
-        try:
-            return await asyncio.wait_for(self._client(request), REQUEST_TIMEOUT)
-        except errors.FloodWaitError as e:
-            raise SourceRateLimited(float(e.seconds)) from e
-        except (errors.RPCError, OSError, asyncio.TimeoutError) as e:
-            raise SourceError(f"{type(request).__name__} failed: {e!r}") from e
+    def __init__(self, account: TelegramAccount) -> None:
+        self._account = account
 
     async def list_collections(self) -> list[Collection]:
-        result = await self._call(functions.payments.GetStarGiftsRequest(hash=0))
+        result = await self._account.call(functions.payments.GetStarGiftsRequest(hash=0))
         gifts = getattr(result, "gifts", None)
         if gifts is None:  # StarGiftsNotModified cannot happen with hash=0, but never trust the wire
             raise SourceError(f"unexpected getStarGifts response: {type(result).__name__}")
@@ -180,7 +143,7 @@ class TelethonGiftSource(GiftSource):
 
     async def fetch_listings(self, collection: Collection, limit: int) -> list[Listing]:
         # No sort flag set = default ordering by listing date, newest first.
-        result = await self._call(
+        result = await self._account.call(
             functions.payments.GetResaleStarGiftsRequest(gift_id=collection.id, offset="", limit=limit)
         )
         users = {u.id: u for u in result.users if isinstance(u, types.User)}

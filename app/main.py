@@ -16,26 +16,46 @@ from app.logging_setup import setup_logging
 from app.services.monitor import Monitor, MonitorConfig
 from app.services.notifier import TelegramNotifier
 from app.sources.base import GiftSource
+from app.sources.composite import CompositeSource
+from app.sources.mrkt import MrktGiftSource
+from app.sources.telegram_account import TelegramAccount
+from app.sources.telethon_source import TelethonGiftSource
 from app.web.server import create_web_app, start_web
 
 log = logging.getLogger("app")
 
 
-def build_source(settings: Settings) -> GiftSource:
-    if settings.gift_source == "telethon":
-        from app.sources.telethon_source import TelethonGiftSource
+def build_source(settings: Settings) -> tuple[GiftSource, TelegramAccount | None]:
+    """The configured market(s) and, if any of them needs it, the shared Telegram service account."""
+    sources = settings.sources
+    if sources == ["mock"]:
+        from app.sources.mock import MockGiftSource
 
-        assert settings.tg_api_id and settings.tg_api_hash and settings.tg_session_string  # validated in Settings
-        return TelethonGiftSource(
-            api_id=settings.tg_api_id,
-            api_hash=settings.tg_api_hash.get_secret_value(),
-            session_string=settings.tg_session_string.get_secret_value(),
-            request_delay=settings.source_request_delay,
+        log.warning("GIFT_SOURCE=mock: using FAKE demo data, not the real marketplace")
+        return MockGiftSource(), None
+
+    if not (settings.tg_api_id and settings.tg_api_hash and settings.tg_session_string):
+        raise SystemExit("Telegram credentials are missing")  # Settings validates this; belt and braces
+    account = TelegramAccount(
+        api_id=settings.tg_api_id,
+        api_hash=settings.tg_api_hash.get_secret_value(),
+        session_string=settings.tg_session_string.get_secret_value(),
+        request_delay=settings.source_request_delay,
+    )
+    parts: list[GiftSource] = []
+    if "telegram" in sources:
+        parts.append(TelethonGiftSource(account))
+    if "mrkt" in sources:
+        parts.append(
+            MrktGiftSource(
+                lambda: account.web_app_init_data("mrkt"),
+                collections=settings.mrkt_collection_names,
+                request_delay=settings.mrkt_request_delay,
+                page_size=settings.mrkt_page_size,
+                max_pages=settings.mrkt_max_pages,
+            )
         )
-    from app.sources.mock import MockGiftSource
-
-    log.warning("GIFT_SOURCE=mock: using FAKE demo data, not the real marketplace")
-    return MockGiftSource()
+    return (parts[0] if len(parts) == 1 else CompositeSource(parts)), account
 
 
 def build_storage(settings: Settings) -> BaseStorage:
@@ -54,7 +74,9 @@ async def amain() -> None:
     session_factory = create_session_factory(engine)
     await init_db(engine)
 
-    source = build_source(settings)
+    source, account = build_source(settings)
+    if account is not None:
+        await account.start()
     await source.start()
 
     bot = Bot(settings.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -100,6 +122,8 @@ async def amain() -> None:
         await asyncio.wait([monitor_task], timeout=10)
         monitor_task.cancel()
         await source.stop()
+        if account is not None:
+            await account.stop()
         await storage.close()
         await bot.session.close()
         await engine.dispose()

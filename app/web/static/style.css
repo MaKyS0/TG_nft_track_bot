@@ -108,6 +108,9 @@ button { cursor: pointer; }
 .price { display: flex; align-items: center; gap: 6px; font-size: 22px; font-weight: 750; letter-spacing: -0.01em; }
 .price svg { width: 20px; height: 20px; fill: var(--star); flex: none; }
 .price.ton { color: var(--text); }
+.market { color: var(--hint); font-size: 13px; font-weight: 600; }
+.actions-row { display: flex; gap: 8px; padding: 4px 16px 6px; }
+.actions-row .btn { flex: 1; padding: 10px 12px; }
 .owner { padding: 0 16px 14px; color: var(--hint); font-size: 13px; }
 .owner a { color: var(--link); text-decoration: none; }
 

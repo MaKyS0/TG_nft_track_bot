@@ -1,5 +1,6 @@
 """All database access. Functions take an AsyncSession and never commit (callers own the transaction)."""
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -121,6 +122,7 @@ async def save_listings(session: AsyncSession, listings: Sequence[Listing]) -> l
                 number=item.number,
                 price=item.price,
                 currency=item.currency,
+                market=item.market,
                 model=item.model,
                 model_rarity=item.model_rarity,
                 backdrop=item.backdrop,
@@ -168,6 +170,16 @@ async def record_notification(session: AsyncSession, user_id: int, filter_id: in
 
 
 # ── poll state ─────────────────────────────────────────────────────────────
+
+
+def poll_key(collection_id: int, market: str) -> int:
+    """PollState key. Telegram keeps the plain collection id (backwards compatible); other markets get a
+    stable negative number, so each (collection, market) pair has its own "first pass" baseline."""
+    if market == "telegram":
+        return collection_id
+    digest = hashlib.sha1(f"{market}:{collection_id}".encode(), usedforsecurity=False).hexdigest()
+    return -int(digest[:12], 16)
+
 
 
 async def is_collection_seeded(session: AsyncSession, collection_id: int) -> bool:

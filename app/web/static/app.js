@@ -64,12 +64,13 @@ function icon(name) {
 /* ── formatting ── */
 
 const nf = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
+const nfTon = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 4 });
 const fmt = (n) => nf.format(n);
 const pct = (permille) => (permille == null ? "" : fmt(permille / 10) + "%");
 
 function priceNode(o) {
   if (o.currency === "TON") {
-    return h("div", { class: "price ton" }, `${fmt(o.price / 1e9)} TON`);
+    return h("div", { class: "price ton" }, `${nfTon.format(o.price / 1e9)} TON`);
   }
   const star = svg([STAR]);
   return h("div", { class: "price" }, star, fmt(o.price));
@@ -84,6 +85,9 @@ function filterSummary(f) {
   if (f.min_price != null && f.max_price != null) parts.push(`цена ${fmt(f.min_price)}–${fmt(f.max_price)}`);
   else if (f.min_price != null) parts.push("цена от " + fmt(f.min_price));
   else if (f.max_price != null) parts.push("цена до " + fmt(f.max_price));
+  if (f.min_ton != null && f.max_ton != null) parts.push(`цена ${nfTon.format(f.min_ton)}–${nfTon.format(f.max_ton)} TON`);
+  else if (f.min_ton != null) parts.push(`цена от ${nfTon.format(f.min_ton)} TON`);
+  else if (f.max_ton != null) parts.push(`цена до ${nfTon.format(f.max_ton)} TON`);
   if (f.max_rarity != null) parts.push("редкость до " + pct(f.max_rarity));
   return parts.length ? parts.join(", ") : "Любые подарки";
 }
@@ -176,7 +180,7 @@ async function reloadDerived() {
 /* ── views ── */
 
 function demoNote() {
-  return state.me && state.me.source === "mock"
+  return state.me && String(state.me.source).split(",").includes("mock")
     ? h("p", { class: "demo" }, "Демо-режим: показаны тестовые данные, а не настоящие лоты.")
     : null;
 }
@@ -212,10 +216,13 @@ function offerCard(o) {
     ownerUrl ? h("a", { href: ownerUrl, onclick: (e) => { e.preventDefault(); openLink(ownerUrl); } }, "@" + o.owner_username)
       : o.owner_name ? `${o.owner_name} (профиль скрыт)` : "скрыт");
 
+  const marketUrl = safeTgUrl(o.market_url);
+  const actions = h("div", { class: "actions-row" },
+    marketUrl ? h("button", { class: "btn", onclick: () => { haptic(); openLink(marketUrl); } }, `Купить на ${o.market_title}`) : null,
+    h("button", { class: marketUrl ? "btn quiet" : "btn", onclick: () => { haptic(); openLink(o.url); } }, "Страница подарка"));
   return h("article", { class: "offer" }, banner, traits,
-    h("div", { class: "buy" }, priceNode(o),
-      h("button", { class: "btn", onclick: () => { haptic(); openLink(o.url); } }, "Открыть подарок")),
-    owner);
+    h("div", { class: "buy" }, priceNode(o), marketUrl ? h("span", { class: "market" }, o.market_title) : null),
+    actions, owner);
 }
 
 function offersView() {
@@ -298,6 +305,9 @@ function sheetView() {
     h("div", { class: "pair" },
       input("min_price", "Цена от, Stars", val("min_price"), { inputmode: "numeric", placeholder: "Без минимума" }),
       input("max_price", "Цена до, Stars", val("max_price"), { inputmode: "numeric", placeholder: "Без максимума" })),
+    h("div", { class: "pair" },
+      input("min_ton", "Цена от, TON", val("min_ton"), { inputmode: "decimal", placeholder: "Без минимума" }),
+      input("max_ton", "Цена до, TON", val("max_ton"), { inputmode: "decimal", placeholder: "Без максимума" })),
     input("max_rarity", "Редкость не больше, %", f && f.max_rarity != null ? String(f.max_rarity / 10) : "",
       { inputmode: "decimal", placeholder: "Любая, например 2" }),
     h("div", { class: "actions" },
@@ -375,7 +385,8 @@ function readForm(form) {
   }
   const body = {
     collection: text("collection"), model: text("model"), backdrop: text("backdrop"), symbol: text("symbol"),
-    min_price: whole("min_price"), max_price: whole("max_price"), max_rarity: permille,
+    min_price: whole("min_price"), max_price: whole("max_price"),
+    min_ton: whole("min_ton"), max_ton: whole("max_ton"), max_rarity: permille,
   };
   const name = text("name");
   if (name) body.name = name;

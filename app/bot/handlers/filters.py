@@ -23,6 +23,8 @@ FIELD_HINTS = {
     "symbol": "название символа, например <code>Stars</code>",
     "min_price": "минимальная цена в Stars, например <code>500</code>",
     "max_price": "максимальная цена в Stars, например <code>5000</code>",
+    "min_ton": "минимальная цена в TON, например <code>12.5</code> (для лотов на MRKT и других рынках с TON)",
+    "max_ton": "максимальная цена в TON, например <code>40</code>",
     "max_rarity": "порог редкости в промилле (1–1000): подойдут лоты, где модель, фон или символ "
     "редкие не больше этого значения, например <code>20</code> = 2%",
 }
@@ -148,9 +150,10 @@ async def filter_value(message: Message, session: AsyncSession, state: FSMContex
 
     try:
         value = parse_field_value(field, message.text)
-        if value is not None and field in {"min_price", "max_price"}:
-            low = value if field == "min_price" else f.min_price
-            high = value if field == "max_price" else f.max_price
+        if value is not None and field in {"min_price", "max_price", "min_ton", "max_ton"}:
+            pair = {"min_price": "max_price", "max_price": "min_price", "min_ton": "max_ton", "max_ton": "min_ton"}[field]
+            other = getattr(f, pair)
+            low, high = (value, other) if field.startswith("min") else (other, value)
             if low is not None and high is not None and low > high:
                 raise InvalidValue("Минимальная цена не может быть больше максимальной.")
     except InvalidValue as e:

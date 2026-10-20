@@ -5,8 +5,8 @@ from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import Settings
-from app.web.api import add_routes, api_middleware
-from app.web.keys import SESSION_FACTORY, SETTINGS
+from app.web.api import UserRateLimiter, add_routes, api_middleware
+from app.web.keys import RATE_LIMITER, SESSION_FACTORY, SETTINGS
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ async def _security_headers(request: web.Request, response: web.StreamResponse) 
     response.headers["Content-Security-Policy"] = CSP
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Server"] = "nft-tracker"  # do not advertise Python/aiohttp versions
     if request.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
 
@@ -39,6 +40,7 @@ def create_web_app(session_factory: async_sessionmaker[AsyncSession], settings: 
     app = web.Application(middlewares=[api_middleware], client_max_size=16 * 1024)
     app[SETTINGS] = settings
     app[SESSION_FACTORY] = session_factory
+    app[RATE_LIMITER] = UserRateLimiter()
     app.on_response_prepare.append(_security_headers)
     app.router.add_get("/", _index)
     app.router.add_get("/healthz", _healthz)

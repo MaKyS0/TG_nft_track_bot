@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -10,14 +11,34 @@ from app.bot.parsing import FILTER_FIELDS, InvalidValue, validate_filter_payload
 from app.config import Settings
 from app.db import repo
 from app.db.models import User, UserFilter
-from app.domain import Listing
+from app.domain import NANO_TON, Listing
 from app.services.search import find_offers
 from app.web.auth import InitDataError, validate_init_data
-from app.web.keys import DB_SESSION, SESSION_FACTORY, SETTINGS, USER_ID
+from app.web.keys import DB_SESSION, RATE_LIMITER, SESSION_FACTORY, SETTINGS, USER_ID
 
 log = logging.getLogger(__name__)
 
 MAX_LISTINGS = 100
+RATE_BURST = 30  # a page load is 3 requests; this leaves room for normal clicking
+RATE_PER_SECOND = 5.0
+
+
+class UserRateLimiter:
+    """Token bucket per authenticated user (in memory). Stops one account from hammering the API."""
+
+    def __init__(self, burst: int = RATE_BURST, per_second: float = RATE_PER_SECOND) -> None:
+        self._burst, self._rate = burst, per_second
+        self._state: dict[int, tuple[float, float]] = {}  # user -> (tokens, last seen)
+
+    def allow(self, user_id: int, now: float | None = None) -> bool:
+        now = time.monotonic() if now is None else now
+        tokens, last = self._state.get(user_id, (float(self._burst), now))
+        tokens = min(float(self._burst), tokens + (now - last) * self._rate)
+        allowed = tokens >= 1.0
+        self._state[user_id] = (tokens - 1.0 if allowed else tokens, now)
+        if len(self._state) > 10_000:  # keep memory bounded
+            self._state = {u: v for u, v in self._state.items() if now - v[1] < 60}
+        return allowed
 
 
 class ApiError(Exception):
@@ -50,16 +71,18 @@ def listing_json(item: Listing) -> dict:
         "owner_name": item.owner_name,
         "owner_username": item.owner_username,
         "owner_url": item.owner_url,
+        "market": item.market,
+        "market_title": item.market_title,
+        "market_url": item.market_url,
     }
 
 
 def filter_json(f: UserFilter) -> dict:
-    return {
-        "id": f.id,
-        "name": f.name,
-        "is_active": f.is_active,
-        **{field: getattr(f, field) for field in FILTER_FIELDS},
-    }
+    values = {field: getattr(f, field) for field in FILTER_FIELDS}
+    for key in ("min_ton", "max_ton"):  # stored as nanoTON, exposed in TON
+        if values[key] is not None:
+            values[key] = values[key] / NANO_TON
+    return {"id": f.id, "name": f.name, "is_active": f.is_active, **values}
 
 
 # ── middleware ─────────────────────────────────────────────────────────────
@@ -83,6 +106,9 @@ async def api_middleware(request: web.Request, handler):
         except InitDataError as e:
             log.info("Rejected initData: %s", e)
             raise ApiError(401, "Сеанс устарел. Закройте и снова откройте мини-приложение.") from e
+
+        if not request.app[RATE_LIMITER].allow(tg_user.id):
+            raise ApiError(429, "Слишком много запросов. Подождите немного.")
 
         factory: async_sessionmaker[AsyncSession] = request.app[SESSION_FACTORY]
         async with factory() as session:

@@ -6,7 +6,7 @@ from app.matching import matches, normalize
 
 
 def flt(**kw):
-    base = dict(collection=None, model=None, backdrop=None, symbol=None, min_price=None, max_price=None, max_rarity=None)
+    base = dict(collection=None, model=None, backdrop=None, symbol=None, min_price=None, max_price=None, min_ton=None, max_ton=None, max_rarity=None)
     base.update(kw)
     return SimpleNamespace(**base)
 

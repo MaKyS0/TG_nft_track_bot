@@ -10,7 +10,7 @@ from app.db import repo
 from app.domain import Collection, Listing, SourceError, SourceRateLimited
 from app.matching import matches, normalize
 from app.services.notifier import Notifier, NotifyResult
-from app.sources.base import GiftSource
+from app.sources.base import FetchResult, GiftSource
 
 log = logging.getLogger(__name__)
 
@@ -89,25 +89,28 @@ class Monitor:
         sent = 0
         for collection in targets:
             try:
-                listings = await self._source.fetch_listings(collection, self._config.listings_per_collection)
+                result = await self._source.fetch(collection, self._config.listings_per_collection)
             except SourceRateLimited:
                 raise
             except SourceError as e:
                 log.warning("Skipping %s this cycle: %s", collection.title, e)
                 continue
-            sent += await self._process(collection, listings, filters)
+            sent += await self._process(collection, result, filters)
         return sent
 
-    async def _process(self, collection: Collection, listings: list[Listing], filters: list) -> int:
+    async def _process(self, collection: Collection, result: FetchResult, filters: list) -> int:
         async with self._session_factory() as session:
-            seeded = await repo.is_collection_seeded(session, collection.id)
-            new = await repo.save_listings(session, listings)
-            await repo.mark_collection_polled(session, collection.id)
+            # Each market has its own first pass, so enabling a new market later does not announce its
+            # whole existing inventory as "new".
+            seeded = {m: await repo.is_collection_seeded(session, repo.poll_key(collection.id, m)) for m in result.markets_ok}
+            new = [item for item in await repo.save_listings(session, result.listings) if seeded.get(item.market)]
+            baseline = [m for m, ok in seeded.items() if not ok]
+            for market in result.markets_ok:
+                await repo.mark_collection_polled(session, repo.poll_key(collection.id, market))
             await session.commit()
 
-        if not seeded:
-            log.info("Baseline for %s: %d offers memorised, no notifications", collection.title, len(listings))
-            return 0
+        if baseline:
+            log.info("Baseline for %s on %s: offers memorised, no notifications", collection.title, ", ".join(sorted(baseline)))
         if new:
             log.info("%s: %d new offers", collection.title, len(new))
 

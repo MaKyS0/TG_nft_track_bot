@@ -16,7 +16,9 @@ fi
 # Keep the CPU awake so Android does not freeze the bot when the screen is off.
 command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock || true
 
+umask 077   # everything we create (database, logs) stays private to this app
 mkdir -p data
+chmod 700 data
 LOG=data/tunnel.log
 cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8080 >"$LOG" 2>&1 &
 TUNNEL_PID=$!

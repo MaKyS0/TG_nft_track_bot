@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from app.domain import STARS, Listing
+from app.domain import STARS, TON, Listing
 
 
 class FilterLike(Protocol):
@@ -10,6 +10,8 @@ class FilterLike(Protocol):
     symbol: str | None
     min_price: int | None
     max_price: int | None
+    min_ton: int | None
+    max_ton: int | None
     max_rarity: int | None
 
 
@@ -28,7 +30,7 @@ def _name_ok(wanted: str | None, actual: str | None) -> bool:
 def matches(listing: Listing, f: FilterLike) -> bool:
     """True if ``listing`` satisfies every criterion set in ``f`` (unset = any).
 
-    Price bounds are in Stars; offers priced in TON never match a filter with price bounds.
+    Price bounds are in Stars (``*_price``) and TON (``*_ton``, nanoTON); see the currency rule below.
     ``max_rarity`` (per-mille): the rarest of model/backdrop/symbol must be at most this value.
     """
     if not _name_ok(f.collection, listing.collection):
@@ -40,12 +42,15 @@ def matches(listing: Listing, f: FilterLike) -> bool:
     if not _name_ok(f.symbol, listing.symbol):
         return False
 
-    if f.min_price is not None or f.max_price is not None:
-        if listing.currency != STARS:
+    if any(v is not None for v in (f.min_price, f.max_price, f.min_ton, f.max_ton)):
+        # Prices in different currencies are not comparable: a listing is judged only against the bounds
+        # given in its own currency, and never matches a filter that set bounds only for the other one.
+        low, high = {STARS: (f.min_price, f.max_price), TON: (f.min_ton, f.max_ton)}.get(listing.currency, (None, None))
+        if low is None and high is None:
             return False
-        if f.min_price is not None and listing.price < f.min_price:
+        if low is not None and listing.price < low:
             return False
-        if f.max_price is not None and listing.price > f.max_price:
+        if high is not None and listing.price > high:
             return False
 
     if f.max_rarity is not None:
