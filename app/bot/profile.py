@@ -2,7 +2,7 @@ import logging
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
-from aiogram.types import MenuButtonWebApp, WebAppInfo
+from aiogram.types import MenuButtonDefault, MenuButtonWebApp, WebAppInfo
 
 log = logging.getLogger(__name__)
 
@@ -27,5 +27,7 @@ async def configure_profile(bot: Bot, name: str, webapp_url: str = "") -> None:
             await bot.set_chat_menu_button(
                 menu_button=MenuButtonWebApp(text=name[:16], web_app=WebAppInfo(url=webapp_url))
             )
+        else:  # Mini App is off: do not leave a button pointing at an address that no longer answers
+            await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
     except TelegramAPIError as e:
         log.warning("Could not update the bot profile: %s", e)

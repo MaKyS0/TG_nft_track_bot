@@ -51,7 +51,12 @@ async def test_profile_calls_are_skipped_when_already_correct():
     bot.set_my_name.assert_not_awaited()
     bot.set_my_description.assert_not_awaited()
     bot.set_my_short_description.assert_not_awaited()
-    bot.set_chat_menu_button.assert_not_awaited()
+
+
+async def test_menu_button_is_reset_when_the_mini_app_is_off():
+    bot = fake_bot()
+    await configure_profile(bot, "NFT Tracker", "")
+    assert type(bot.set_chat_menu_button.await_args.kwargs["menu_button"]).__name__ == "MenuButtonDefault"
 
 
 async def test_profile_errors_are_not_fatal():
