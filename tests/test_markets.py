@@ -269,3 +269,35 @@ async def test_old_database_is_upgraded_in_place(tmp_path):
         row = (await conn.execute(text("SELECT name, max_price, min_ton, max_ton FROM user_filters"))).one()
         assert tuple(row) == ("old filter", 500, None, None)
     await engine.dispose()
+
+
+async def test_repeated_failures_back_off_exponentially_and_reset_on_success(make_listing, monkeypatch):
+    import app.sources.composite as composite_module
+
+    now = [1000.0]
+    monkeypatch.setattr(composite_module.time, "monotonic", lambda: now[0])
+    telegram = Stub("telegram", "telegram", ["Plush Pepe"], offers={"Plush Pepe": [make_listing()]})
+    mrkt = Stub("mrkt", "mrkt", follows=True)
+    source = CompositeSource([telegram, mrkt])
+    collection = (await source.list_collections())[0]
+
+    waits = []
+    for _ in range(6):
+        mrkt.error = SourceRateLimited(60)
+        before = now[0]
+        await source.fetch(collection, 10)
+        waits.append(source._cooldown_until["mrkt"] - before)
+        now[0] = source._cooldown_until["mrkt"] + 1  # cool-down over, try again
+    assert waits == [60, 120, 240, 480, 900, 900]  # doubles, capped at 15 minutes
+
+    mrkt.error = None
+    await source.fetch(collection, 10)  # success resets the counter
+    mrkt.error = SourceRateLimited(60)
+    before = now[0]
+    await source.fetch(collection, 10)
+    assert source._cooldown_until["mrkt"] - before == 60
+
+    now[0] += 5000
+    mrkt.error = SourceRateLimited(600)  # the server's own demand is never undercut
+    await source.fetch(collection, 10)
+    assert source._cooldown_until["mrkt"] - now[0] >= 600

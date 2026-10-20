@@ -24,6 +24,7 @@ class CompositeSource(GiftSource):
         self._sources = sources
         self._by_title: dict[str, dict[str, Collection]] = {}  # normalised title -> {source name: collection}
         self._cooldown_until: dict[str, float] = {}
+        self._failures: dict[str, int] = {}  # consecutive failures per source, for exponential back-off
 
     async def start(self) -> None:
         for source in self._sources:
@@ -37,10 +38,9 @@ class CompositeSource(GiftSource):
         return time.monotonic() >= self._cooldown_until.get(source.name, 0.0)
 
     def _penalise(self, source: GiftSource, error: SourceError) -> None:
-        if isinstance(error, SourceRateLimited):
-            wait = error.retry_after
-        else:
-            wait = 60.0
+        count = self._failures[source.name] = self._failures.get(source.name, 0) + 1
+        base = error.retry_after if isinstance(error, SourceRateLimited) else 60.0
+        wait = min(max(base, 60.0 * 2 ** (count - 1)), 900.0)  # 1 min, 2, 4, ... at most 15 min, never below asked
         self._cooldown_until[source.name] = time.monotonic() + wait
         log.warning("%s source paused for %.0fs: %s", source.name, wait, error)
 
@@ -59,6 +59,7 @@ class CompositeSource(GiftSource):
                 failures.append(e)
                 continue
             answered = True
+            self._failures.pop(source.name, None)
             for collection in collections:
                 key = normalize(collection.title)
                 merged.setdefault(key, collection)  # the first source's id wins (Telegram, when enabled)
@@ -88,6 +89,7 @@ class CompositeSource(GiftSource):
                 self._penalise(source, e)
                 failures.append(e)
                 continue
+            self._failures.pop(source.name, None)
             listings.extend(result.listings)
             markets |= result.markets_ok
         if not markets and failures:

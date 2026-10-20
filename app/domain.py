@@ -28,8 +28,8 @@ class SourceError(Exception):
 class SourceRateLimited(SourceError):
     """The data source asked us to slow down."""
 
-    def __init__(self, retry_after: float) -> None:
-        super().__init__(f"rate limited, retry after {retry_after}s")
+    def __init__(self, retry_after: float, detail: str = "") -> None:
+        super().__init__(f"rate limited, retry after {retry_after}s" + (f" ({detail})" if detail else ""))
         self.retry_after = retry_after
 
 

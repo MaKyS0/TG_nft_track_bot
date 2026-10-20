@@ -52,6 +52,17 @@ def clean_int(value: object, low: int, high: int) -> int | None:
     return value
 
 
+def describe_response(status: int, body: bytes, headers, secret: str | None = None) -> str:
+    """One safe line about an unexpected answer, for the log: status, who answered, first words of the body."""
+    text = " ".join(_CONTROL.sub(" ", body[:400].decode("utf-8", "replace")).split())[:120]
+    if secret:
+        text = text.replace(secret, "***")
+    meta = ", ".join(
+        f"{key.lower()}={str(headers[key])[:40]!r}" for key in ("Server", "CF-Mitigated", "Retry-After") if headers.get(key)
+    )
+    return f"HTTP {status}" + (f", {meta}" if meta else "") + f", body={text!r}"
+
+
 def synthetic_collection_id(title: str) -> int:
     """Stable negative id for collections known only by name (never collides with Telegram's ids)."""
     return -int(hashlib.sha1(title.casefold().encode(), usedforsecurity=False).hexdigest()[:10], 16)
@@ -182,19 +193,20 @@ class MrktGiftSource(GiftSource):
                 body = b"".join(chunks)
                 status = response.status
                 retry_after = response.headers.get("Retry-After", "")
+                detail = describe_response(status, body, response.headers, self._token) if status != 200 else ""
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             raise SourceError(f"MRKT request failed: {type(e).__name__}") from e
 
         if status == 429:
             wait = float(retry_after) if retry_after.isdigit() else 60.0
-            raise SourceRateLimited(min(max(wait, 5.0), 900.0))
+            raise SourceRateLimited(min(max(wait, 5.0), 900.0), detail)
         if status == 401 and auth and not _retried:
             self._token = None  # expired: log in again once
             return await self._request(path, payload, auth=auth, _retried=True)
         if status == 403:
-            raise SourceError("MRKT refused the request (403: anti-bot protection or revoked access); not bypassing")
+            raise SourceError(f"MRKT refused the request (403: anti-bot protection or revoked access; not bypassing): {detail}")
         if status != 200:
-            raise SourceError(f"MRKT answered HTTP {status}")
+            raise SourceError(f"MRKT answered unexpectedly: {detail}")
         try:
             return json.loads(body)
         except ValueError as e:

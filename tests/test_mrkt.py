@@ -247,3 +247,21 @@ async def test_configured_collections_are_listed_with_stable_negative_ids():
     assert [c.title for c in first] == ["Plush Pepe", "Heart Locket"]
     assert all(c.id < 0 for c in first)
     assert first == await MrktGiftSource(_init, collections=["Plush Pepe", "Heart Locket"]).list_collections()
+
+
+async def test_rate_limit_log_line_says_what_mrkt_answered(mrkt):
+    mrkt.saling_status = [429]
+    mrkt.headers = {"Retry-After": "7"}
+    with pytest.raises(SourceRateLimited) as info:
+        await mrkt.source.fetch_listings(PEPE, 50)
+    text = str(info.value)
+    assert "HTTP 429" in text and "retry-after='7'" in text and "body='blocked'" in text
+    assert TOKEN not in text and INIT_DATA not in text
+
+
+def test_describe_response_is_safe():
+    from app.sources.mrkt import describe_response
+
+    line = describe_response(403, b"<html>\x00\x1b[31m" + b"x" * 500 + TOKEN.encode(), {"Server": "cloudflare", "CF-Mitigated": "challenge"}, TOKEN)
+    assert "cloudflare" in line and "challenge" in line and TOKEN not in line
+    assert "\x00" not in line and len(line) < 300
