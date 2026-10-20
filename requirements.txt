@@ -1,0 +1,6 @@
+aiogram>=3.13,<4
+telethon>=1.40,<2
+SQLAlchemy[asyncio]>=2.0,<2.2
+asyncpg>=0.29
+redis>=5.0
+pydantic-settings>=2.4,<3
