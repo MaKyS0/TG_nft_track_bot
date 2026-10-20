@@ -75,9 +75,10 @@ DEFAULT_LINK = "https://t.me/mrkt/app"
 def render_link(template: str, *, offer_id: str | None, slug: str, number: int) -> str:
     """Fill the operator's link template. Plain replacement (never str.format); every value is charset-checked.
     A template that needs {id} falls back to the plain app link when the offer has no usable id."""
-    if "{id}" in template and not offer_id:
+    plain = (offer_id or "").replace("-", "")  # {id32}: the id without dashes (the form MRKT shares use)
+    if ("{id}" in template and not offer_id) or ("{id32}" in template and not plain):
         return DEFAULT_LINK
-    return template.replace("{id}", offer_id or "").replace("{slug}", slug).replace("{number}", str(number))
+    return template.replace("{id32}", plain).replace("{id}", offer_id or "").replace("{slug}", slug).replace("{number}", str(number))
 
 
 def parse_gift(item: object, collection: Collection, link_template: str = DEFAULT_LINK) -> Listing | None:

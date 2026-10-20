@@ -161,3 +161,13 @@ async def test_csp_allows_only_the_gift_cdn_for_images():
 
     assert "img-src 'self' data: https://nft.fragment.com;" in CSP
     assert "script-src 'self' https://telegram.org;" in CSP and "connect-src 'self'" in CSP
+
+
+def test_id32_placeholder_drops_dashes_and_template_is_accepted():
+    from app.config import is_valid_link_template
+
+    template = "https://t.me/mrkt/app?startapp={id32}"
+    assert is_valid_link_template(template)
+    link = render_link(template, offer_id="aad4f918-b602-42f2-9f63-7dd406120925", slug="S-1", number=1)
+    assert link == "https://t.me/mrkt/app?startapp=aad4f918b60242f29f637dd406120925"
+    assert render_link(template, offer_id=None, slug="S-1", number=1) == DEFAULT_LINK

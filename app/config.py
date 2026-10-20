@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 KNOWN_SOURCES = {"mock", "telegram", "mrkt"}
-_PLACEHOLDERS = ("{id}", "{slug}", "{number}")
+_PLACEHOLDERS = ("{id32}", "{id}", "{slug}", "{number}")
 _LINK_SHAPE = re.compile(r"https://t\.me/mrkt(?:[/?][A-Za-z0-9_:/?=&.%{}-]*)?")
 
 
@@ -108,7 +108,7 @@ class Settings(BaseSettings):
         value = value.strip()
         if not is_valid_link_template(value):
             raise ValueError(
-                "MRKT_LINK_TEMPLATE must be a https://t.me/mrkt... link; only {id}, {slug} and {number} "
+                "MRKT_LINK_TEMPLATE must be a https://t.me/mrkt... link; only {id}, {id32}, {slug} and {number} "
                 "are allowed as placeholders"
             )
         return value
