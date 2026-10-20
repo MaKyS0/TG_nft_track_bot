@@ -43,6 +43,8 @@ class Listing:
     model_rarity: int | None = None
     backdrop: str | None = None
     backdrop_rarity: int | None = None
+    backdrop_center: int | None = None  # 0xRRGGBB, as given by Telegram; used to tint cards in the mini app
+    backdrop_edge: int | None = None
     symbol: str | None = None
     symbol_rarity: int | None = None
     owner_id: int | None = None

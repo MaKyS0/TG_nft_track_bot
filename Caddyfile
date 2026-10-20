@@ -1,0 +1,6 @@
+# Automatic HTTPS (Let's Encrypt) for the Mini App. Used by: docker compose --profile https up -d
+# DOMAIN must point (DNS A/AAAA record) to this server, ports 80 and 443 must be open.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy bot:8080
+}

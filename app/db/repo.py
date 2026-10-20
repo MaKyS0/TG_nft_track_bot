@@ -26,19 +26,28 @@ def _insert(session: AsyncSession, model):
 # ── users ──────────────────────────────────────────────────────────────────
 
 
-async def upsert_user(session: AsyncSession, user_id: int, username: str | None, first_name: str | None) -> User:
-    user = await session.get(User, user_id)
+async def upsert_user(session: AsyncSession, user_id: int, username: str | None, first_name: str | None) -> None:
+    """Create or refresh a user. A single atomic statement: the Mini App fires several requests at once
+    on first open, and a read-then-insert would make them race on the primary key."""
     now = utcnow()
-    if user is None:
-        user = User(id=user_id, username=username, first_name=first_name, created_at=now, last_seen_at=now)
-        session.add(user)
-    else:
-        user.username = username
-        user.first_name = first_name
-        user.last_seen_at = now
-        user.is_blocked = False  # they are talking to us, so they have not blocked the bot
-    await session.flush()
-    return user
+    stmt = (
+        _insert(session, User)
+        .values(
+            id=user_id,
+            username=username,
+            first_name=first_name,
+            notifications_enabled=True,
+            is_blocked=False,
+            created_at=now,
+            last_seen_at=now,
+        )
+        .on_conflict_do_update(
+            index_elements=["id"],
+            # they are talking to us, so they have not blocked the bot
+            set_={"username": username, "first_name": first_name, "last_seen_at": now, "is_blocked": False},
+        )
+    )
+    await session.execute(stmt)
 
 
 async def set_notifications(session: AsyncSession, user_id: int, enabled: bool) -> None:
@@ -116,6 +125,8 @@ async def save_listings(session: AsyncSession, listings: Sequence[Listing]) -> l
                 model_rarity=item.model_rarity,
                 backdrop=item.backdrop,
                 backdrop_rarity=item.backdrop_rarity,
+                backdrop_center=item.backdrop_center,
+                backdrop_edge=item.backdrop_edge,
                 symbol=item.symbol,
                 symbol_rarity=item.symbol_rarity,
                 owner_id=item.owner_id,

@@ -82,6 +82,8 @@ class ListingRow(Base):
     model_rarity: Mapped[int | None] = mapped_column(Integer)
     backdrop: Mapped[str | None] = mapped_column(String(128))
     backdrop_rarity: Mapped[int | None] = mapped_column(Integer)
+    backdrop_center: Mapped[int | None] = mapped_column(Integer)
+    backdrop_edge: Mapped[int | None] = mapped_column(Integer)
     symbol: Mapped[str | None] = mapped_column(String(128))
     symbol_rarity: Mapped[int | None] = mapped_column(Integer)
     owner_id: Mapped[int | None] = mapped_column(BigInteger)
@@ -102,6 +104,8 @@ class ListingRow(Base):
             model_rarity=self.model_rarity,
             backdrop=self.backdrop,
             backdrop_rarity=self.backdrop_rarity,
+            backdrop_center=self.backdrop_center,
+            backdrop_edge=self.backdrop_edge,
             symbol=self.symbol,
             symbol_rarity=self.symbol_rarity,
             owner_id=self.owner_id,

@@ -4,11 +4,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from app.bot.keyboards import main_menu
+from app.config import Settings
 
 router = Router(name="start")
 
 WELCOME = (
-    "👋 <b>Привет! Я Gift Track Bot.</b>\n\n"
+    "👋 <b>Привет! Я NFT Tracker.</b>\n\n"
     "Слежу за маркетплейсом улучшенных Telegram-подарков и пишу, когда появляется предложение, "
     "подходящее под ваши фильтры.\n\n"
     "<b>Что я умею:</b>\n"
@@ -20,15 +21,17 @@ WELCOME = (
     "ℹ️ Бот проверяет рынок периодически, а не мгновенно, и сделок не проводит — "
     "покупка выполняется в самом Telegram по ссылке из уведомления."
 )
+WEBAPP_HINT = "\n\n📱 Всё то же самое доступно в удобном мини-приложении: кнопка «Мини-приложение» ниже."
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext) -> None:
+async def cmd_start(message: Message, state: FSMContext, settings: Settings) -> None:
     await state.clear()
-    await message.answer(WELCOME, reply_markup=main_menu())
+    text = WELCOME + (WEBAPP_HINT if settings.webapp_url else "")
+    await message.answer(text, reply_markup=main_menu(settings.webapp_url))
 
 
 @router.message(Command("cancel"))
-async def cmd_cancel(message: Message, state: FSMContext) -> None:
+async def cmd_cancel(message: Message, state: FSMContext, settings: Settings) -> None:
     await state.clear()
-    await message.answer("Отменено.", reply_markup=main_menu())
+    await message.answer("Отменено.", reply_markup=main_menu(settings.webapp_url))

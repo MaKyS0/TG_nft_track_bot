@@ -1,5 +1,11 @@
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    WebAppInfo,
+)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.db.models import UserFilter
@@ -27,15 +33,18 @@ class SearchCb(CallbackData, prefix="srch"):
     offset: int = 0
 
 
-def main_menu() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=BTN_SEARCH)],
-            [KeyboardButton(text=BTN_NOTIFICATIONS), KeyboardButton(text=BTN_FILTERS)],
-            [KeyboardButton(text=BTN_STATS), KeyboardButton(text=BTN_HELP)],
-        ],
-        resize_keyboard=True,
-    )
+BTN_WEBAPP = "📱 Мини-приложение"
+
+
+def main_menu(webapp_url: str = "") -> ReplyKeyboardMarkup:
+    rows = [
+        [KeyboardButton(text=BTN_SEARCH)],
+        [KeyboardButton(text=BTN_NOTIFICATIONS), KeyboardButton(text=BTN_FILTERS)],
+        [KeyboardButton(text=BTN_STATS), KeyboardButton(text=BTN_HELP)],
+    ]
+    if webapp_url:  # opens the Mini App directly; Telegram sends no text message for this button
+        rows.insert(0, [KeyboardButton(text=BTN_WEBAPP, web_app=WebAppInfo(url=webapp_url))])
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
 def filters_list(filters: list[UserFilter]) -> InlineKeyboardMarkup:

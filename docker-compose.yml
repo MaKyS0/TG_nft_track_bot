@@ -7,11 +7,33 @@ services:
       # Override .env values so the bot talks to the containers below.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-gifts}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-gifts}
       REDIS_URL: redis://redis:6379/0
+      # The app always listens on 8080 inside the container; WEB_PORT in .env only picks the host-side port.
+      WEB_PORT: "8080"
+    ports:
+      # Mini App web server. Bound to localhost: expose it via the caddy service (HTTPS) or a tunnel.
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # Optional HTTPS front for the Mini App: docker compose --profile https up -d
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - bot
 
   postgres:
     image: postgres:16-alpine
@@ -43,3 +65,5 @@ services:
 volumes:
   pgdata:
   redisdata:
+  caddy_data:
+  caddy_config:

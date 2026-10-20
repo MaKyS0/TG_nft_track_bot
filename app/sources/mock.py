@@ -5,7 +5,15 @@ from app.sources.base import GiftSource
 
 _COLLECTIONS = ["Plush Pepe", "Heart Locket", "Durov's Cap", "Precious Peach", "Astral Shard"]
 _MODELS = ["Classic", "Neon", "Royal", "Frost", "Ember", "Jade"]
-_BACKDROPS = ["Black", "Midnight Blue", "Satin Gold", "Emerald", "Cappuccino", "Burgundy"]
+# name -> (center, edge) colours, mimicking how real backdrops are tinted
+_BACKDROPS = {
+    "Black": (0x2B2B2F, 0x0B0B0D),
+    "Midnight Blue": (0x2F4B8F, 0x101C3D),
+    "Satin Gold": (0xE3BE62, 0x9A7421),
+    "Emerald": (0x2E9E73, 0x0F4B36),
+    "Cappuccino": (0xB98C6E, 0x6B4A36),
+    "Burgundy": (0xA63D52, 0x4A1220),
+}
 _SYMBOLS = ["Stars", "Hearts", "Crowns", "Flowers", "Skulls", "Waves"]
 
 
@@ -31,6 +39,8 @@ class MockGiftSource(GiftSource):
         self._counter += 1
         number = self._rng.randint(1, 50_000)
         slug = f"{collection.title.replace(' ', '').replace(chr(39), '')}-{number}"
+        backdrop = self._rng.choice(list(_BACKDROPS))
+        center, edge = _BACKDROPS[backdrop]
         return Listing(
             slug=slug,
             collection_id=collection.id,
@@ -40,8 +50,10 @@ class MockGiftSource(GiftSource):
             currency=STARS,
             model=self._rng.choice(_MODELS),
             model_rarity=self._rng.choice([5, 10, 20, 30, 50]),
-            backdrop=self._rng.choice(_BACKDROPS),
+            backdrop=backdrop,
             backdrop_rarity=self._rng.choice([5, 10, 20, 30, 50]),
+            backdrop_center=center,
+            backdrop_edge=edge,
             symbol=self._rng.choice(_SYMBOLS),
             symbol_rarity=self._rng.choice([5, 10, 20, 30, 50]),
             owner_id=1000 + self._counter,

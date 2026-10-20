@@ -7,8 +7,45 @@ MAX_PRICE = 1_000_000_000
 CLEAR_TOKENS = {"-", "—", "–", "сброс", "нет", "any", "любой", "любая", "любое"}
 
 
+FILTER_FIELDS = ("collection", "model", "backdrop", "symbol", "min_price", "max_price", "max_rarity")
+
+
 class InvalidValue(ValueError):
     """Raised with a user-facing (Russian) message."""
+
+
+def validate_filter_payload(payload: dict, current=None) -> dict:
+    """Validate a structured edit (mini app API) and return the field changes to apply.
+
+    ``current`` is the existing filter (for the min/max price cross-check). Nothing is applied here,
+    so a rejected payload leaves the filter untouched.
+    """
+    changes: dict = {}
+    for key, raw in payload.items():
+        if key in FILTER_FIELDS:
+            if raw is None:
+                changes[key] = None
+            elif isinstance(raw, bool) or not isinstance(raw, (str, int)):
+                raise InvalidValue(f"Некорректное значение поля «{key}».")
+            else:
+                changes[key] = parse_field_value(key, str(raw))
+        elif key == "name":
+            name = " ".join(str(payload["name"]).split())
+            if not name or len(name) > MAX_TEXT_LENGTH:
+                raise InvalidValue(f"Название: от 1 до {MAX_TEXT_LENGTH} символов.")
+            changes["name"] = name
+        elif key == "is_active":
+            if not isinstance(raw, bool):
+                raise InvalidValue("Поле is_active должно быть true или false.")
+            changes["is_active"] = raw
+        else:
+            raise InvalidValue(f"Неизвестное поле: {key}.")
+
+    low = changes.get("min_price", getattr(current, "min_price", None))
+    high = changes.get("max_price", getattr(current, "max_price", None))
+    if low is not None and high is not None and low > high:
+        raise InvalidValue("Минимальная цена не может быть больше максимальной.")
+    return changes
 
 
 def parse_field_value(field: str, raw: str) -> str | int | None:

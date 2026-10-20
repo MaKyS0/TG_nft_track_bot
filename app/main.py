@@ -9,12 +9,14 @@ from aiogram.fsm.storage.base import BaseStorage
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.bot.factory import build_dispatcher
+from app.bot.profile import configure_profile
 from app.config import Settings, get_settings
 from app.db.base import create_engine, create_session_factory, init_db
 from app.logging_setup import setup_logging
 from app.services.monitor import Monitor, MonitorConfig
 from app.services.notifier import TelegramNotifier
 from app.sources.base import GiftSource
+from app.web.server import create_web_app, start_web
 
 log = logging.getLogger("app")
 
@@ -70,8 +72,13 @@ async def amain() -> None:
         ),
     )
     monitor_task = asyncio.create_task(monitor.run(), name="monitor")
+    web_runner = None
 
     try:
+        if settings.webapp_url:
+            web_runner = await start_web(
+                create_web_app(session_factory, settings), settings.web_host, settings.web_port
+            )
         try:
             me = await bot.get_me()
         except TelegramUnauthorizedError:
@@ -81,8 +88,11 @@ async def amain() -> None:
             log.critical("Cannot reach api.telegram.org: %s", e)
             raise SystemExit(1) from None
         log.info("Bot @%s started", me.username)
+        await configure_profile(bot, settings.bot_name, settings.webapp_url)
         await dp.start_polling(bot)
     finally:
+        if web_runner is not None:
+            await web_runner.cleanup()
         monitor.stop()
         await asyncio.wait([monitor_task], timeout=10)
         monitor_task.cancel()

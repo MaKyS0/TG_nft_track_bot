@@ -86,6 +86,7 @@ def parse_resale_gift(
 
     model = symbol = backdrop = None
     model_rarity = symbol_rarity = backdrop_rarity = None
+    backdrop_center = backdrop_edge = None
     for attribute in gift.attributes:
         if isinstance(attribute, types.StarGiftAttributeModel):
             model, model_rarity = attribute.name, _rarity(attribute)
@@ -93,6 +94,8 @@ def parse_resale_gift(
             symbol, symbol_rarity = attribute.name, _rarity(attribute)
         elif isinstance(attribute, types.StarGiftAttributeBackdrop):
             backdrop, backdrop_rarity = attribute.name, _rarity(attribute)
+            backdrop_center = attribute.center_color & 0xFFFFFF
+            backdrop_edge = attribute.edge_color & 0xFFFFFF
 
     owner_id, owner_username, owner_name = _owner(gift, users, chats)
     return Listing(
@@ -106,6 +109,8 @@ def parse_resale_gift(
         model_rarity=model_rarity,
         backdrop=backdrop,
         backdrop_rarity=backdrop_rarity,
+        backdrop_center=backdrop_center,
+        backdrop_edge=backdrop_edge,
         symbol=symbol,
         symbol_rarity=symbol_rarity,
         owner_id=owner_id,

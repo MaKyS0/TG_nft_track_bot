@@ -100,7 +100,7 @@ def h(session_factory):
 
 async def test_start_greets_and_registers_user(h, session_factory):
     await h.message("/start")
-    assert "Gift Track Bot" in h.session.texts[-1]
+    assert "NFT Tracker" in h.session.texts[-1]
     send = h.session.calls[-1]
     assert [b.text for row in send.reply_markup.keyboard for b in row] == [
         kb.BTN_SEARCH, kb.BTN_NOTIFICATIONS, kb.BTN_FILTERS, kb.BTN_STATS, kb.BTN_HELP,

@@ -14,4 +14,6 @@ COPY app ./app
 RUN useradd --system --uid 10001 bot
 USER bot
 
+EXPOSE 8080
+
 CMD ["python", "-m", "app"]

@@ -31,6 +31,22 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
 
+    # Display name shown in Telegram; the bot sets it on startup when it differs.
+    bot_name: str = "NFT Tracker"
+
+    # Mini App: public HTTPS URL that reaches the built-in web server (empty = mini app disabled).
+    webapp_url: str = ""
+    web_host: str = "0.0.0.0"
+    web_port: int = 8080
+    webapp_auth_max_age: int = 86400  # seconds an initData signature stays valid
+
+    @model_validator(mode="after")
+    def _check_webapp(self) -> "Settings":
+        if self.webapp_url and not self.webapp_url.startswith("https://"):
+            raise ValueError("WEBAPP_URL must start with https:// (Telegram requires HTTPS for Mini Apps)")
+        self.webapp_url = self.webapp_url.rstrip("/")
+        return self
+
     @model_validator(mode="after")
     def _check_telethon(self) -> "Settings":
         if self.gift_source == "telethon":

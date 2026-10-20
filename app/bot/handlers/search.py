@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -8,11 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot.handlers.common import show
 from app.bot.keyboards import BTN_SEARCH, SearchCb, create_filter_prompt, search_more
 from app.config import Settings
-from app.db import repo
-from app.db.models import utcnow
-from app.domain import STARS
 from app.formatting import DEAL_NOTE, format_listing
-from app.matching import matches
+from app.services.search import find_offers
 
 router = Router(name="search")
 
@@ -22,19 +17,15 @@ PAGE_SIZE = 5
 async def render_search(
     target: Message | CallbackQuery, session: AsyncSession, user_id: int, settings: Settings, offset: int = 0
 ) -> None:
-    filters = await repo.list_filters(session, user_id, only_active=True)
-    if not filters:
+    result = await find_offers(session, user_id, settings.search_fresh_minutes)
+    if not result.has_filters:
         await show(
             target,
             "У вас нет активных фильтров. Создайте фильтр — и я покажу подходящие предложения.",
             create_filter_prompt(),
         )
         return
-
-    since = utcnow() - timedelta(minutes=settings.search_fresh_minutes)
-    fresh = await repo.fresh_listings(session, since)
-    found = [item for item in fresh if any(matches(item, f) for f in filters)]
-    found.sort(key=lambda item: (item.currency != STARS, item.price))
+    found = result.listings
 
     page = found[offset : offset + PAGE_SIZE]
     if not page:
