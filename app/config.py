@@ -6,6 +6,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 KNOWN_SOURCES = {"mock", "telegram", "mrkt"}
+_PLACEHOLDERS = ("{id}", "{slug}", "{number}")
+_LINK_SHAPE = re.compile(r"https://t\.me/mrkt(?:[/?][A-Za-z0-9_:/?=&.%{}-]*)?")
+
+
+def is_valid_link_template(template: str) -> bool:
+    """A t.me/mrkt link whose only braces are the three known placeholders (never str.format on config)."""
+    rest = template
+    for token in _PLACEHOLDERS:
+        rest = rest.replace(token, "")
+    return bool(_LINK_SHAPE.fullmatch(template)) and "{" not in rest and "}" not in rest
 
 
 def parse_sources(value: str) -> list[str]:
@@ -47,6 +57,9 @@ class Settings(BaseSettings):
     # for MRKT alone list them here (comma-separated names).
     mrkt_collections: str = ""
     mrkt_request_delay: float = 2.0
+    # Where "Buy on MRKT" leads. MRKT documents no per-gift link, so the default opens the app; once you know
+    # the real format (MRKT -> gift -> Share), put it here using {id}, {slug} and {number} as placeholders.
+    mrkt_link_template: str = "https://t.me/mrkt/app"
     mrkt_page_size: int = 20
     mrkt_max_pages: int = 3
     tg_api_id: int | None = None
@@ -86,6 +99,17 @@ class Settings(BaseSettings):
             raise ValueError(
                 "BOT_TOKEN has an invalid format: expected something like 123456789:AA... exactly as "
                 "@BotFather sent it (no 'bot' prefix, no quotes, no spaces)"
+            )
+        return value
+
+    @field_validator("mrkt_link_template")
+    @classmethod
+    def _check_link_template(cls, value: str) -> str:
+        value = value.strip()
+        if not is_valid_link_template(value):
+            raise ValueError(
+                "MRKT_LINK_TEMPLATE must be a https://t.me/mrkt... link; only {id}, {slug} and {number} "
+                "are allowed as placeholders"
             )
         return value
 

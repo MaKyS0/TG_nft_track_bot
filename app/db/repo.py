@@ -123,6 +123,8 @@ async def save_listings(session: AsyncSession, listings: Sequence[Listing]) -> l
                 price=item.price,
                 currency=item.currency,
                 market=item.market,
+                external_id=item.external_id,
+                buy_url=item.buy_url,
                 model=item.model,
                 model_rarity=item.model_rarity,
                 backdrop=item.backdrop,

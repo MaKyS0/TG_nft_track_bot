@@ -57,7 +57,19 @@ def synthetic_collection_id(title: str) -> int:
     return -int(hashlib.sha1(title.casefold().encode(), usedforsecurity=False).hexdigest()[:10], 16)
 
 
-def parse_gift(item: object, collection: Collection) -> Listing | None:
+_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+DEFAULT_LINK = "https://t.me/mrkt/app"
+
+
+def render_link(template: str, *, offer_id: str | None, slug: str, number: int) -> str:
+    """Fill the operator's link template. Plain replacement (never str.format); every value is charset-checked.
+    A template that needs {id} falls back to the plain app link when the offer has no usable id."""
+    if "{id}" in template and not offer_id:
+        return DEFAULT_LINK
+    return template.replace("{id}", offer_id or "").replace("{slug}", slug).replace("{number}", str(number))
+
+
+def parse_gift(item: object, collection: Collection, link_template: str = DEFAULT_LINK) -> Listing | None:
     """Turn one entry of ``/gifts/saling`` into a Listing; None if it is not a valid active offer."""
     if not isinstance(item, dict) or item.get("isOnSale") is False:
         return None
@@ -74,6 +86,8 @@ def parse_gift(item: object, collection: Collection) -> Listing | None:
         color = clean_int(value, -(2**31), 2**32)
         return None if color is None else color & 0xFFFFFF
 
+    raw_id = item.get("id")
+    offer_id = raw_id if isinstance(raw_id, str) and _ID.fullmatch(raw_id) else None
     return Listing(
         slug=slug,
         collection_id=collection.id,
@@ -82,6 +96,8 @@ def parse_gift(item: object, collection: Collection) -> Listing | None:
         price=price,
         currency=TON,
         market=MRKT,
+        external_id=offer_id,
+        buy_url=render_link(link_template, offer_id=offer_id, slug=slug, number=number),
         model=clean_text(item.get("modelTitle")) or clean_text(item.get("modelName")),
         model_rarity=clean_int(item.get("modelRarityPerMille"), 0, 1000),
         backdrop=clean_text(item.get("backdropName")),
@@ -109,7 +125,9 @@ class MrktGiftSource(GiftSource):
         max_pages: int = 3,
         base_url: str = API_URL,
         http: aiohttp.ClientSession | None = None,
+        link_template: str = DEFAULT_LINK,
     ) -> None:
+        self._link_template = link_template
         self._get_init_data = get_init_data
         self._collections = [Collection(id=synthetic_collection_id(t), title=t) for t in collections]
         self._limiter = AsyncRateLimiter(1.0 / max(request_delay, 0.2))
@@ -199,7 +217,7 @@ class MrktGiftSource(GiftSource):
             if not isinstance(gifts, list):
                 raise SourceError("unexpected MRKT response shape (no 'gifts' list)")
             for item in gifts:
-                listing = parse_gift(item, collection)
+                listing = parse_gift(item, collection, self._link_template)
                 if listing is not None:
                     listings.append(listing)
             cursor = data.get("cursor") if isinstance(data.get("cursor"), str) else ""

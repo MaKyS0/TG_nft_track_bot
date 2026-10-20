@@ -10,6 +10,7 @@ MRKT = "mrkt"
 MARKET_TITLES = {TELEGRAM: "Telegram", MRKT: "MRKT"}
 # Where to buy, per market (Telegram sells on the gift page itself).
 MARKET_URLS = {MRKT: "https://t.me/mrkt/app"}
+IMAGE_CDN = "https://nft.fragment.com/gift"
 
 # Values below come from third parties: build links only from strings that match these patterns.
 _SLUG_RE = re.compile(r"[A-Za-z0-9_-]{1,80}")
@@ -66,6 +67,8 @@ class Listing:
     owner_username: str | None = None
     owner_name: str | None = None
     market: str = TELEGRAM
+    external_id: str | None = None  # the market's own id of the offer (MRKT), when it has one
+    buy_url: str | None = None  # deep link into the market app, validated by the source that built it
 
     @property
     def key(self) -> str:
@@ -80,7 +83,14 @@ class Listing:
     @property
     def market_url(self) -> str | None:
         """Where the offer can be bought when that is not the Telegram gift page itself."""
+        if self.buy_url and self.buy_url.startswith("https://t.me/"):
+            return self.buy_url
         return MARKET_URLS.get(self.market)
+
+    @property
+    def image_url(self) -> str | None:
+        """Picture of the gift (backdrop + pattern + model) from Fragment's public CDN, keyed by slug."""
+        return f"{IMAGE_CDN}/{self.slug.lower()}.medium.jpg" if is_safe_slug(self.slug) else None
 
     @property
     def url(self) -> str:

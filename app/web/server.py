@@ -12,10 +12,11 @@ log = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-# Telegram's own script is the only third-party code; everything else is served from this origin.
+# Telegram's own script is the only third-party code; gift pictures come from Fragment's public CDN
+# (images only). Everything else is served from this origin.
 CSP = (
     "default-src 'none'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'"
+    "img-src 'self' data: https://nft.fragment.com; connect-src 'self'; base-uri 'none'; form-action 'none'"
 )
 
 

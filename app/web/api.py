@@ -71,6 +71,7 @@ def listing_json(item: Listing) -> dict:
         "owner_name": item.owner_name,
         "owner_username": item.owner_username,
         "owner_url": item.owner_url,
+        "image_url": item.image_url,
         "market": item.market,
         "market_title": item.market_title,
         "market_url": item.market_url,

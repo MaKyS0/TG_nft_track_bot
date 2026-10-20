@@ -190,16 +190,29 @@ function emptyState(title, text, actionLabel, action) {
     actionLabel ? h("button", { class: "btn", onclick: action }, actionLabel) : null);
 }
 
+const safeImageUrl = (u) => (typeof u === "string" && /^https:\/\/nft\.fragment\.com\/gift\/[a-z0-9_-]+\.medium\.jpg$/.test(u) ? u : null);
+
 function offerCard(o) {
-  const banner = h("div", { class: "banner" },
+  const title = h("div", { class: "caption" },
     h("div", { class: "title" }, o.collection),
     h("div", { class: "num" }, "№ " + o.number));
+  const banner = h("div", { class: "banner" });
   const center = safeColor(o.backdrop_center);
   const edge = safeColor(o.backdrop_edge);
-  if (center && edge) {
-    banner.style.background = `radial-gradient(120% 140% at 50% 10%, ${center}, ${edge})`;
-    if (hexLuma(center) * 0.6 + hexLuma(edge) * 0.4 > 150) banner.classList.add("on-light");
+  if (center && edge) banner.style.background = `radial-gradient(120% 140% at 50% 10%, ${center}, ${edge})`;
+
+  // The picture already contains the backdrop, the pattern and the gift itself. If it cannot be loaded
+  // (unknown slug, CDN down) the card falls back to the compact colour banner.
+  const imageUrl = safeImageUrl(o.image_url);
+  if (imageUrl) {
+    banner.classList.add("loading-image");
+    const img = h("img", { class: "art", src: imageUrl, alt: `${o.collection} № ${o.number}`, loading: "lazy", decoding: "async" });
+    img.addEventListener("load", () => { banner.classList.remove("loading-image"); banner.classList.add("has-image"); });
+    img.addEventListener("error", () => { img.remove(); banner.classList.remove("loading-image"); });
+    banner.append(img);
   }
+  if (!imageUrl && center && edge && hexLuma(center) * 0.6 + hexLuma(edge) * 0.4 > 150) banner.classList.add("on-light");
+  banner.append(title);
 
   const traits = h("dl", { class: "traits" });
   for (const [label, value, rarity] of [
@@ -208,7 +221,13 @@ function offerCard(o) {
     ["Символ", o.symbol, o.symbol_rarity],
   ]) {
     if (!value) continue;
-    traits.append(h("dt", null, label), h("dd", null, value), h("dd", { class: "rar" }, pct(rarity)));
+    const name = h("dd", null, value);
+    if (label === "Фон" && center && edge) {
+      const dot = h("i", { class: "swatch", "aria-hidden": "true" });
+      dot.style.background = `radial-gradient(circle at 35% 30%, ${center}, ${edge})`;
+      name.prepend(dot);
+    }
+    traits.append(h("dt", null, label), name, h("dd", { class: "rar" }, pct(rarity)));
   }
 
   const ownerUrl = safeTgUrl(o.owner_url);

@@ -53,6 +53,7 @@ def build_source(settings: Settings) -> tuple[GiftSource, TelegramAccount | None
                 request_delay=settings.mrkt_request_delay,
                 page_size=settings.mrkt_page_size,
                 max_pages=settings.mrkt_max_pages,
+                link_template=settings.mrkt_link_template,
             )
         )
     return (parts[0] if len(parts) == 1 else CompositeSource(parts)), account

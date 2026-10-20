@@ -81,6 +81,8 @@ class ListingRow(Base):
     price: Mapped[int] = mapped_column(BigInteger)
     currency: Mapped[str] = mapped_column(String(8))
     market: Mapped[str] = mapped_column(String(16), default="telegram", server_default="telegram")
+    external_id: Mapped[str | None] = mapped_column(String(64))
+    buy_url: Mapped[str | None] = mapped_column(String(300))
     model: Mapped[str | None] = mapped_column(String(128))
     model_rarity: Mapped[int | None] = mapped_column(Integer)
     backdrop: Mapped[str | None] = mapped_column(String(128))
@@ -104,6 +106,8 @@ class ListingRow(Base):
             price=self.price,
             currency=self.currency,
             market=self.market,
+            external_id=self.external_id,
+            buy_url=self.buy_url,
             model=self.model,
             model_rarity=self.model_rarity,
             backdrop=self.backdrop,
