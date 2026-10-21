@@ -18,6 +18,7 @@ from app.services.notifier import TelegramNotifier
 from app.sources.base import GiftSource
 from app.sources.composite import CompositeSource
 from app.sources.mrkt import MrktGiftSource
+from app.sources.mrkt_vault import MrktVaultSource
 from app.sources.telegram_account import TelegramAccount
 from app.sources.telethon_source import TelethonGiftSource
 from app.web.server import create_web_app, start_web
@@ -56,6 +57,8 @@ def build_source(settings: Settings) -> tuple[GiftSource, TelegramAccount | None
                 link_template=settings.mrkt_link_template,
             )
         )
+    if "mrkt_vault" in sources:
+        parts.append(MrktVaultSource(account, settings.mrkt_vault_username))
     return (parts[0] if len(parts) == 1 else CompositeSource(parts)), account
 
 

@@ -212,3 +212,16 @@ async def test_save_listings_marks_new_only_for_announced_markets(session_factor
         from datetime import timedelta
         rows = {x.slug: x.is_new for x in await repo.fresh_listings(s, utcnow() - timedelta(hours=1))}
     assert rows == {"A-1": False, "B-2": True}
+
+
+async def test_unpriced_offers_sort_after_priced_ones_in_search(session_factory, make_listing):
+    from datetime import timedelta
+
+    from app.db.models import utcnow
+
+    async with session_factory() as s:
+        await repo.save_listings(s, [make_listing(slug="A-1", price=0, currency="NONE", market="mrkt"),
+                                     make_listing(slug="B-2", number=2, price=5)])
+        await s.commit()
+        rows = await repo.fresh_listings(s, utcnow() - timedelta(hours=1))
+    assert [r.slug for r in rows] == ["B-2", "A-1"]

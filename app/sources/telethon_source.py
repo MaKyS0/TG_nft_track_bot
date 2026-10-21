@@ -76,7 +76,21 @@ def parse_resale_gift(
     if not isinstance(gift, types.StarGiftUnique):
         return None
     price = _price(gift)
-    if price is None or not is_safe_slug(gift.slug):
+    if price is None:
+        return None
+    return unique_gift_listing(gift, users, chats, fallback_collection, price[0], price[1])
+
+
+def unique_gift_listing(
+    gift: types.StarGiftUnique,
+    users: dict[int, types.User],
+    chats: dict[int, types.TypeChat],
+    fallback_collection: Collection,
+    price: int,
+    currency: str,
+) -> Listing | None:
+    """Any upgraded gift as a ``Listing`` (None if its slug is not safe to build links from)."""
+    if not is_safe_slug(gift.slug):
         return None
 
     model = symbol = backdrop = None
@@ -98,8 +112,8 @@ def parse_resale_gift(
         collection_id=gift.gift_id or fallback_collection.id,
         collection=gift.title or fallback_collection.title,
         number=gift.num,
-        price=price[0],
-        currency=price[1],
+        price=price,
+        currency=currency,
         model=model,
         model_rarity=model_rarity,
         backdrop=backdrop,

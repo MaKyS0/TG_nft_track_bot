@@ -48,9 +48,11 @@ echo
 echo "Какие рынки включить?"
 echo "  1) только официальный рынок Telegram (рекомендуется)"
 echo "  2) Telegram + MRKT (экспериментально: MRKT сейчас отвечает 429 на запросы лотов, см. README)"
+echo "  3) Telegram + новые подарки на аккаунте MRKT (без цен, см. README)"
 read -r -p "Выбор [1]: " CHOICE
 case "${CHOICE:-1}" in
     2) SOURCES="telegram,mrkt" ;;
+    3) SOURCES="telegram,mrkt_vault" ;;
     *) SOURCES="telegram" ;;
 esac
 

@@ -9,7 +9,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import ListingRow, Notification, PollState, User, UserFilter, as_utc, utcnow
-from app.domain import Listing
+from app.domain import UNPRICED, Listing
 
 
 def _insert(session: AsyncSession, model):
@@ -159,7 +159,7 @@ async def save_listings(
 
 
 async def fresh_listings(session: AsyncSession, since: datetime, limit: int = 3000) -> list[Listing]:
-    stmt = select(ListingRow).where(ListingRow.last_seen_at >= since).order_by(ListingRow.price).limit(limit)
+    stmt = select(ListingRow).where(ListingRow.last_seen_at >= since).order_by(ListingRow.currency == UNPRICED, ListingRow.price).limit(limit)
     return [row.to_domain() for row in (await session.execute(stmt)).scalars()]
 
 

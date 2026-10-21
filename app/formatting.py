@@ -52,9 +52,12 @@ def format_listing(listing: Listing, *, filter_name: str | None = None, index: i
     """Card for a chat message or photo caption: name, then the price (what people look for first),
     then the attributes and the owner."""
     prefix = f"{index}. " if index is not None else ""
-    price = f"<b>{format_price(listing.price, listing.currency)}</b>"
-    if listing.market_url:  # sold on a third-party market rather than on the gift page
-        price += f" на <b>{escape(listing.market_title)}</b>"
+    if listing.has_price:
+        price = f"<b>{format_price(listing.price, listing.currency)}</b>"
+        if listing.market_url:  # sold on a third-party market rather than on the gift page
+            price += f" на <b>{escape(listing.market_title)}</b>"
+    else:  # seen on the market's account, which does not publish the price
+        price = f"🏷 Цена: смотрите на <b>{escape(listing.market_title)}</b>"
     lines = [
         f'{prefix}🎁 <a href="{escape(listing.url)}"><b>{escape(listing.collection)}</b> #{listing.number}</a>',
         price,

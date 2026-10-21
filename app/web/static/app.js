@@ -94,7 +94,10 @@ const nfTon = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 4 });
 const fmt = (n) => nf.format(n);
 const pct = (permille) => (permille == null ? "" : fmt(permille / 10) + "%");
 
+const unpriced = (o) => o.currency === "NONE"; // seen on the market's account, price not published
+
 function priceNode(o) {
+  if (unpriced(o)) return h("span", { class: "price unpriced" }, h("span", { class: "unit" }, "Цена на " + o.market_title));
   const ton = o.currency === "TON";
   return h("span", { class: "price" + (ton ? " ton" : " stars") },
     svg([ton ? GEM : STAR], "glyph"),
@@ -282,7 +285,7 @@ const rarestOf = (o) => {
   const values = [o.model_rarity, o.backdrop_rarity, o.symbol_rarity].filter((v) => v != null);
   return values.length ? Math.min(...values) : Infinity;
 };
-const priceKey = (o) => [o.currency === "TON" ? 1 : 0, o.price];
+const priceKey = (o) => [unpriced(o) ? 2 : o.currency === "TON" ? 1 : 0, o.price];
 
 const SORTS = {
   price: { label: "Цена", cmp: (a, b) => priceKey(a)[0] - priceKey(b)[0] || priceKey(a)[1] - priceKey(b)[1] },
@@ -470,7 +473,7 @@ function detailView() {
         h("div", { class: "detail-head" },
           h("h2", null, o.collection),
           h("p", { class: "sub" }, ["№ " + o.number, seen].filter(Boolean).join(" · "))),
-        h("div", { class: "detail-price" }, priceNode(o), h("span", { class: "where" }, "на " + o.market_title)),
+        h("div", { class: "detail-price" }, priceNode(o), unpriced(o) ? null : h("span", { class: "where" }, "на " + o.market_title)),
         traitsList(o),
         ownerLine(o),
         actions,

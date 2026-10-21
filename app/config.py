@@ -5,7 +5,7 @@ from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-KNOWN_SOURCES = {"mock", "telegram", "mrkt"}
+KNOWN_SOURCES = {"mock", "telegram", "mrkt", "mrkt_vault"}
 _PLACEHOLDERS = ("{id32}", "{id}", "{slug}", "{number}")
 _LINK_SHAPE = re.compile(r"https://t\.me/mrkt(?:[/?][A-Za-z0-9_:/?=&.%{}-]*)?")
 
@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     # Where "Buy on MRKT" leads. MRKT documents no per-gift link, so the default opens the app; once you know
     # the real format (MRKT -> gift -> Share), put it here using {id}, {slug} and {number} as placeholders.
     mrkt_link_template: str = "https://t.me/mrkt/app"
+    mrkt_vault_username: str = "mrktbank"  # public account on which MRKT holds deposited gifts
     mrkt_page_size: int = 20
     mrkt_max_pages: int = 3
     tg_api_id: int | None = None
@@ -102,6 +103,14 @@ class Settings(BaseSettings):
             )
         return value
 
+    @field_validator("mrkt_vault_username")
+    @classmethod
+    def _check_vault_username(cls, value: str) -> str:
+        value = value.strip().lstrip("@")
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{4,31}", value):
+            raise ValueError("MRKT_VAULT_USERNAME must be a Telegram username (5-32 letters, digits, underscores)")
+        return value
+
     @field_validator("mrkt_link_template")
     @classmethod
     def _check_link_template(cls, value: str) -> str:
@@ -133,7 +142,7 @@ class Settings(BaseSettings):
         sources = parse_sources(self.gift_source)
         if "mrkt" in sources and "telegram" not in sources and not self.mrkt_collection_names:
             raise ValueError("GIFT_SOURCE=mrkt without telegram requires MRKT_COLLECTIONS (comma-separated names)")
-        if "telegram" in sources or "mrkt" in sources:  # both log in with the operator's Telegram account
+        if any(s in sources for s in ("telegram", "mrkt", "mrkt_vault")):  # all use the operator's Telegram account
             missing = [
                 name
                 for name, value in (

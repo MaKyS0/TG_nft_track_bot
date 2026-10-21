@@ -4,6 +4,7 @@ from datetime import datetime
 
 STARS = "XTR"
 TON = "TON"
+UNPRICED = "NONE"  # the source shows the gift but not its price (price is 0 then)
 NANO_TON = 1_000_000_000
 
 TELEGRAM = "telegram"
@@ -78,6 +79,10 @@ class Listing:
         """Identity of an *offer*: the same gift at a new price (or on another market) is a new offer."""
         base = f"{self.slug}|{self.price}|{self.currency}"
         return base if self.market == TELEGRAM else f"{self.market}:{base}"
+
+    @property
+    def has_price(self) -> bool:
+        return self.currency != UNPRICED
 
     @property
     def market_title(self) -> str:

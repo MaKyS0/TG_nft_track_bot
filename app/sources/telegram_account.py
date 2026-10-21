@@ -75,6 +75,13 @@ class TelegramAccount:
         await self._limiter.acquire()
         return await self._guard(self._client(request), type(request).__name__)
 
+    async def input_peer(self, username: str):
+        """Resolve a public ``@username`` (read-only lookup)."""
+        if self._client is None:
+            raise SourceError("Telegram account is not started")
+        await self._limiter.acquire()
+        return await self._guard(self._client.get_input_entity(username), "resolve " + username)
+
     async def web_app_init_data(self, bot_username: str, short_name: str = "app") -> str:
         """Signed initData for the mini app ``t.me/<bot_username>/<short_name>`` (what its login expects)."""
         if self._client is None:

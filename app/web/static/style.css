@@ -284,6 +284,7 @@ button { cursor: pointer; }
 .price.stars .glyph { fill: var(--star); }
 .price.ton .glyph { fill: var(--ton); }
 .price .unit { font-size: 15px; font-weight: 750; color: var(--hint); letter-spacing: 0; align-self: flex-end; padding-bottom: 3px; }
+.price.unpriced .unit { font-size: 14px; align-self: center; padding: 0; }
 
 .traits {
   margin: 0; padding: 12px 0; border-top: 1px solid var(--sep); border-bottom: 1px solid var(--sep);
