@@ -41,3 +41,29 @@ def test_listing_card_escapes_html_and_shows_owner(make_listing):
 def test_hidden_owner_is_not_invented(make_listing):
     card = format_listing(make_listing(owner_username=None, owner_name=None, owner_id=None))
     assert "скрыт" in card and "t.me/seller" not in card
+
+
+def test_rarity_can_be_typed_in_percent():
+    assert parse_field_value("max_rarity", "2%") == 20
+    assert parse_field_value("max_rarity", "0,5 %") == 5
+    assert parse_field_value("max_rarity", "100%") == 1000
+    assert parse_field_value("max_rarity", "20‰") == 20  # bare numbers and ‰ stay per-mille, as before
+    for bad in ("0%", "0.05%", "101%", "abc%", "%", "-1%", "NaN%", "1.25%"):
+        with pytest.raises(InvalidValue):
+            parse_field_value("max_rarity", bad)
+
+
+def test_filter_shows_rarity_in_percent():
+    from types import SimpleNamespace
+
+    from app.formatting import format_filter
+
+    f = SimpleNamespace(collection=None, model=None, backdrop=None, symbol=None, min_price=None, max_price=None,
+                        min_ton=None, max_ton=None, max_rarity=5)
+    assert "0,5%" in format_filter(f)
+
+
+def test_listing_card_puts_the_price_right_under_the_name(make_listing):
+    lines = format_listing(make_listing(model_rarity=12)).splitlines()
+    assert "Plush Pepe" in lines[0] and "⭐ 1 000" in lines[1]
+    assert "(1,2%)" in lines[2]  # Russian decimal comma

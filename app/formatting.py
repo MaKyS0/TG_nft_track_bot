@@ -12,13 +12,10 @@ FIELD_LABELS = {
     "max_price": "Макс. цена (⭐)",
     "min_ton": "Мин. цена (TON)",
     "max_ton": "Макс. цена (TON)",
-    "max_rarity": "Редкость (‰, не больше)",
+    "max_rarity": "Редкость, не больше",
 }
 
-DEAL_NOTE = (
-    "ℹ️ Бот сделок не проводит: покупка выполняется в Telegram по ссылке. "
-    "Цена и наличие могли измениться — проверьте на странице подарка."
-)
+DEAL_NOTE = "<i>ℹ️ Бот сделок не проводит. Цену и наличие проверьте на странице подарка перед покупкой.</i>"
 
 
 def thousands(n: int) -> str:
@@ -40,7 +37,7 @@ def format_price(price: int, currency: str) -> str:
 def format_rarity(permille: int | None) -> str:
     if permille is None:
         return ""
-    return f" ({permille / 10:g}%)"
+    return f" ({permille / 10:g}%)".replace(".", ",")
 
 
 def format_owner(listing: Listing) -> str:
@@ -52,9 +49,15 @@ def format_owner(listing: Listing) -> str:
 
 
 def format_listing(listing: Listing, *, filter_name: str | None = None, index: int | None = None) -> str:
+    """Card for a chat message or photo caption: name, then the price (what people look for first),
+    then the attributes and the owner."""
     prefix = f"{index}. " if index is not None else ""
+    price = f"<b>{format_price(listing.price, listing.currency)}</b>"
+    if listing.market_url:  # sold on a third-party market rather than on the gift page
+        price += f" на <b>{escape(listing.market_title)}</b>"
     lines = [
         f'{prefix}🎁 <a href="{escape(listing.url)}"><b>{escape(listing.collection)}</b> #{listing.number}</a>',
+        price,
     ]
     if listing.model:
         lines.append(f"🧩 Модель: {escape(listing.model)}{format_rarity(listing.model_rarity)}")
@@ -62,9 +65,6 @@ def format_listing(listing: Listing, *, filter_name: str | None = None, index: i
         lines.append(f"🎨 Фон: {escape(listing.backdrop)}{format_rarity(listing.backdrop_rarity)}")
     if listing.symbol:
         lines.append(f"✨ Символ: {escape(listing.symbol)}{format_rarity(listing.symbol_rarity)}")
-    lines.append(f"💰 Цена: <b>{format_price(listing.price, listing.currency)}</b>")
-    if listing.market_url:
-        lines.append(f"🏪 Продаётся на: <b>{escape(listing.market_title)}</b>")
     lines.append(f"👤 Владелец: {format_owner(listing)}")
     if filter_name:
         lines.append(f"🔎 Фильтр: {escape(filter_name)}")
@@ -79,6 +79,8 @@ def format_filter(f: FilterLike) -> str:
         if value is not None and value != "":
             if field in ("min_ton", "max_ton"):
                 shown = ton_str(value)
+            elif field == "max_rarity":  # stored in per-mille, shown in percent like everywhere else
+                shown = f"{value / 10:g}%".replace(".", ",")
             else:
                 shown = thousands(value) if isinstance(value, int) else escape(str(value))
             parts.append(f"• {label}: <b>{shown}</b>")

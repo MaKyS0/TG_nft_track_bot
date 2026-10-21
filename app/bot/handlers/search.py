@@ -40,8 +40,8 @@ async def render_search(
     cards = "\n\n".join(format_listing(item, index=offset + i + 1) for i, item in enumerate(page))
     header = f"🎁 <b>Найдено: {len(found)}</b> (сначала дешёвые, {offset + 1}–{offset + len(page)})"
     text = f"{header}\n\n{cards}\n\n{DEAL_NOTE}"
-    more = search_more(offset + PAGE_SIZE) if offset + PAGE_SIZE < len(found) else None
-    await show(target, text, more)
+    next_offset = offset + PAGE_SIZE if offset + PAGE_SIZE < len(found) else None
+    await show(target, text, search_more(next_offset, settings.webapp_url))
 
 
 @router.message(F.text == BTN_SEARCH)

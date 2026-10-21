@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import (
     InlineKeyboardButton,
@@ -102,9 +104,21 @@ def create_filter_prompt() -> InlineKeyboardMarkup:
     )
 
 
-def search_more(next_offset: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Показать ещё ▶️", callback_data=SearchCb(offset=next_offset).pack())]
-        ]
-    )
+BTN_OPEN_APP = "📱 Открыть в мини-приложении"
+
+
+def webapp_button(webapp_url: str, slug: str | None = None) -> InlineKeyboardButton:
+    """Inline button that opens the Mini App (allowed in private chats only, which is all this bot uses).
+    With ``slug`` the app opens that offer's card if it is still on sale."""
+    url = f"{webapp_url}/?{urlencode({'offer': slug})}" if slug else f"{webapp_url}/"
+    return InlineKeyboardButton(text=BTN_OPEN_APP, web_app=WebAppInfo(url=url))
+
+
+def search_more(next_offset: int | None, webapp_url: str = "") -> InlineKeyboardMarkup | None:
+    """Buttons under search results: next page (``None`` when this is the last one) and the Mini App."""
+    rows = []
+    if next_offset is not None:
+        rows.append([InlineKeyboardButton(text="Показать ещё ▶️", callback_data=SearchCb(offset=next_offset).pack())])
+    if webapp_url:
+        rows.append([webapp_button(webapp_url)])
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None

@@ -87,7 +87,7 @@ async def amain() -> None:
     monitor = Monitor(
         source,
         session_factory,
-        TelegramNotifier(bot, settings.notify_rate_per_second),
+        TelegramNotifier(bot, settings.notify_rate_per_second, settings.webapp_url),
         MonitorConfig(
             poll_interval=settings.poll_interval_seconds,
             listings_per_collection=settings.listings_per_collection,

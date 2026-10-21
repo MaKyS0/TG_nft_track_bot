@@ -108,3 +108,11 @@ def test_bundled_avatar_is_a_square_png_telegram_accepts():
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
     width, height = struct.unpack(">II", data[16:24])
     assert width == height >= 512 and len(data) < 5_000_000
+
+
+def test_search_results_offer_the_mini_app_only_when_configured():
+    assert kb.search_more(None) is None  # last page, no Mini App: no keyboard at all
+    assert [b.text for row in kb.search_more(5).inline_keyboard for b in row] == ["Показать ещё ▶️"]
+    markup = kb.search_more(None, "https://app.example.com")
+    button = markup.inline_keyboard[0][0]
+    assert button.text == kb.BTN_OPEN_APP and button.web_app.url == "https://app.example.com/"

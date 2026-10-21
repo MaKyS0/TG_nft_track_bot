@@ -1,13 +1,15 @@
 import asyncio
 import logging
 from enum import Enum
+from html import escape
 from typing import Protocol
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions
 
-from app.domain import Listing
+from app.bot.keyboards import webapp_button
+from app.domain import Listing, is_safe_slug
 from app.formatting import DEAL_NOTE, format_listing
 from app.ratelimit import AsyncRateLimiter
 
@@ -29,21 +31,23 @@ class Notifier(Protocol):
 class TelegramNotifier:
     MAX_RETRIES = 2
 
-    def __init__(self, bot: Bot, rate_per_second: float = 20) -> None:
+    def __init__(self, bot: Bot, rate_per_second: float = 20, webapp_url: str = "") -> None:
         self._bot = bot
         self._limiter = AsyncRateLimiter(rate_per_second)
+        self._webapp_url = webapp_url
 
-    @staticmethod
-    def _markup(listing: Listing) -> InlineKeyboardMarkup:
+    def _markup(self, listing: Listing) -> InlineKeyboardMarkup:
         buttons = [[InlineKeyboardButton(text="🔗 Открыть подарок", url=listing.url)]]
         if listing.market_url:
             buttons.insert(0, [InlineKeyboardButton(text=f"🛒 Купить на {listing.market_title}", url=listing.market_url)])
         if listing.owner_url:
             buttons.append([InlineKeyboardButton(text="👤 Профиль владельца", url=listing.owner_url)])
+        if self._webapp_url and is_safe_slug(listing.slug):
+            buttons.append([webapp_button(self._webapp_url, listing.slug)])
         return InlineKeyboardMarkup(inline_keyboard=buttons)
 
     async def notify(self, user_id: int, listing: Listing, filter_name: str) -> NotifyResult:
-        text = f"🔔 <b>Новое предложение по вашему фильтру</b>\n\n{format_listing(listing, filter_name=filter_name)}\n\n{DEAL_NOTE}"
+        text = f"🔔 <b>Новый лот по фильтру «{escape(filter_name)}»</b>\n\n{format_listing(listing)}\n\n{DEAL_NOTE}"
         markup = self._markup(listing)
 
         # With a picture when possible (Telegram fetches the URL itself); plain text if that fails.

@@ -171,3 +171,20 @@ def test_id32_placeholder_drops_dashes_and_template_is_accepted():
     link = render_link(template, offer_id="aad4f918-b602-42f2-9f63-7dd406120925", slug="S-1", number=1)
     assert link == "https://t.me/mrkt/app?startapp=aad4f918b60242f29f637dd406120925"
     assert render_link(template, offer_id=None, slug="S-1", number=1) == DEFAULT_LINK
+
+
+async def test_notification_names_the_filter_and_opens_the_offer_in_the_mini_app(make_listing):
+    session = Recorder()
+    bot = Bot("123456:TEST", session=session)
+    sender = TelegramNotifier(bot, rate_per_second=1000, webapp_url="https://app.example.com")
+    assert await sender.notify(1, make_listing(slug="PlushPepe-7"), "<b>Pepe</b>") is NotifyResult.SENT
+    sent = session.calls[0]
+    assert sent.caption.startswith("🔔 <b>Новый лот по фильтру «&lt;b&gt;Pepe&lt;/b&gt;»</b>")
+    last = sent.reply_markup.inline_keyboard[-1][0]
+    assert last.url is None and last.web_app.url == "https://app.example.com/?offer=PlushPepe-7"
+
+
+async def test_no_mini_app_button_without_webapp_url(make_listing):
+    session = Recorder()
+    await notifier(session).notify(1, make_listing(), "f")
+    assert all(b.web_app is None for row in session.calls[0].reply_markup.inline_keyboard for b in row)

@@ -78,14 +78,25 @@ def parse_field_value(field: str, raw: str) -> str | int | None:
             raise InvalidValue("В TON допустимо не больше 4 знаков после запятой.")
         return int(amount * NANO_TON)
 
+    if field == "max_rarity" and text.endswith("%"):  # "2%" / "0,5%": percent, stored as per-mille
+        try:
+            percent = Decimal(text[:-1].strip().replace(",", "."))
+        except InvalidOperation:
+            raise InvalidValue("Нужен процент, например 2% или 0,5%.") from None
+        if not percent.is_finite() or not Decimal("0.1") <= percent <= 100 or percent * 10 != int(percent * 10):
+            raise InvalidValue("Редкость: от 0,1% до 100%, не больше одного знака после запятой.")
+        return int(percent * 10)
+
     if field in PRICE_FIELDS or field == "max_rarity":
         digits = text.replace(" ", "").replace("_", "").replace(",", "")
+        if field == "max_rarity":
+            digits = digits.removesuffix("‰")
         if not digits.isdigit():
             raise InvalidValue("Нужно целое неотрицательное число, например 1500.")
         number = int(digits)
         if field == "max_rarity":
             if not 1 <= number <= 1000:
-                raise InvalidValue("Редкость задаётся в промилле от 1 до 1000 (5‰ = 0,5%).")
+                raise InvalidValue("Редкость: процент со знаком %, например 2%, или промилле от 1 до 1000 (20 = 2%).")
         elif number > MAX_PRICE:
             raise InvalidValue("Слишком большое число.")
         return number
